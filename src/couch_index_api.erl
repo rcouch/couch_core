@@ -12,43 +12,25 @@
 
 -module(couch_index_api).
 
-get(Field, State) ->
-    ok.
+-export([behaviour_info/1]).
 
-init(Db, Ddoc) ->
-    ok.
+%% @private
+-spec behaviour_info(_)
+	-> undefined | [{handle, 2} | {init, 3} | {terminate, 2}, ...].
 
-open(Db, State) ->
-    ok.
-
-close(State) ->
-    ok.
-
-delete(State) ->
-    ok.
-
-reset(State) ->
-    ok.
-
-
-start_update(State, PurgedState, NumChanges) ->
-    {ok, State}.
-
-purge(Db, PurgeSeq, PurgedIdRevs, State) ->
-    ok.
-
-process_doc(Doc, Seq, State) ->
-    ok.
-
-finish_update(State) ->
-    {ok, State}.
-
-commit(State) ->
-    ok.
-
-
-compact(Parent, State, Opts) ->
-    ok.
-
-swap_compacted(OldState, NewState) ->
-    ok.
+behaviour_info(callbacks) ->
+    [{get, 2},
+     {init, 2}, 
+     {open, 2},
+     {close, 1},
+     {delete, 1},
+     {reset, 1},
+     {start_update, 3},
+     {purge, 4},
+     {process_doc, 3},
+     {finish_update, 1},
+     {commit, 1},
+     {compact, 3},
+     {swap_compacted, 2}];
+behaviour_info(_) ->
+    undefined.
