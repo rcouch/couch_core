@@ -11,7 +11,7 @@
 % the License.
 
 -module(couch_mrview_index).
-
+-behaviour(couch_index_api).
 
 -export([get/2]).
 -export([init/2, open/2, close/1, reset/1, delete/1]).

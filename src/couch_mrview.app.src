@@ -12,7 +12,7 @@
 
 {application, couch_mrview, [
     {description, "CouchDB Map/Reduce Views"},
-    {vsn, "%version%"},
+    {vsn, "0.1"},
     {modules, [
         couch_mrview,
         couch_mrview_compactor,
