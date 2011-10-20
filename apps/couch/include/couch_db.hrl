@@ -207,7 +207,8 @@
     stop = false,
     data = <<>>,
     ctype = "application/json",
-    headers = []
+    headers = [],
+    json = nil
 }).
 
 -record(index_header,
