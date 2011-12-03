@@ -30,6 +30,7 @@
 -export([send_response/4,send_method_not_allowed/2,send_error/4, send_redirect/2,send_chunked_error/2]).
 -export([send_json/2,send_json/3,send_json/4,last_chunk/1,parse_multipart_request/3]).
 -export([accepted_encodings/1,handle_request_int/5,validate_referer/1,validate_ctype/2]).
+-export([vendor_id/0]).
 
 start_link() ->
     start_link(http).
@@ -932,8 +933,15 @@ negotiate_content_type1(#httpd{mochi_req=MochiReq}) ->
 
 server_header() ->
     [{"Server", "CouchDB/" ++ couch:version() ++
-            " Refuge/" ++ ?b2l(refuge_common:get_version()) ++
+            " " ++ vendor_id() ++
             " (Erlang OTP/" ++ erlang:system_info(otp_release) ++ ")"}].
+
+vendor_id() ->
+    VendorName = couch_util:capitalize(couch_config:get("vendor", "name", "rcouch")),
+    VendorVersion = couch_config:get("vendor", "version", "0.0"),
+    VendorName ++ "/" ++ VendorVersion.
+
+
 
 
 -record(mp, {boundary, buffer, data_fun, callback}).

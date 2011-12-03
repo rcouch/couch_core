@@ -57,9 +57,10 @@ start_server(IniFiles) ->
     % announce startup
 
     io:format("couch core ~s is starting ~n", [couch:version()]),
-    io:format("refuge ~s (LogLevel=~s) is starting.~n", [
-        refuge_common:get_version(),
-        LogLevel
+    io:format("~s ~s (LogLevel=~s) is starting.~n", [
+            couch_config:get("vendor", "name", "rcouch"),
+            couch_config:get("vendor", "version", "0.0"),
+            LogLevel
     ]),
     case LogLevel of
     "debug" ->
@@ -105,7 +106,9 @@ start_server(IniFiles) ->
     unlink(ConfigPid),
 
     Ip = couch_config:get("httpd", "bind_address"),
-    io:format("Refuge has started. Time to relax.~n"),
+    io:format("~s has started. Time to relax.~n", [
+            couch_util:capitalize(couch_config:get("vendor", "name", "rcouch"))
+        ]),
     Uris = [get_uri(Name, Ip) || Name <- [couch_httpd, https]],
     [begin
         case Uri of
