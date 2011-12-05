@@ -1,0 +1,26 @@
+*.beam
+*.gz
+*.tpl
+*.o
+*.lo
+*.la
+*.m4
+*.in
+*~
+*.orig
+*.rej
+erl_crash.dump
+configure
+autom4te.cache
+build-aux
+*.diff
+.DS_Store
+*.dSYM
+*.sw*
+*.gz
+
+# other
+deps
+ebin
+distdir
+package/osxbuild

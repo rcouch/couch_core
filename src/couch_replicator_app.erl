@@ -10,17 +10,19 @@
 % License for the specific language governing permissions and limitations under
 % the License.
 
-{application, couch_replicator, [
-    {description, "CouchDB replicator"},
-    {vsn, "1.3.0"},
-    {modules, []},
-    {registered, [
-        couch_replicator_manager_sup,
-        couch_replicator_job_sup,
-        couch_replicator_sup
-    ]},
-    {applications, [kernel, stdlib, crypto, sasl, 
-        inets, oauth, ibrowse, couch]},
-    {mod, { couch_replicator_app, []}},
-    {env, []}
-]}.
+-module(couch_replicator_app).
+
+-behaviour(application).
+
+%% Application callbacks
+-export([start/2, stop/1]).
+
+%% ===================================================================
+%% Application callbacks
+%% ===================================================================
+
+start(_StartType, _StartArgs) ->
+    couch_replicator_sup:start_link().
+
+stop(_State) ->
+    ok.
