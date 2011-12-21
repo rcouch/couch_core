@@ -4,6 +4,7 @@
 BUILD_LIBS_DIR=$(cd ${0%/*} && pwd)
 
 export CORE_TOP=${BUILD_LIBS_DIR%/*}
+cd $CORE_TOP
 
 CORE_TOP=`pwd`
 
