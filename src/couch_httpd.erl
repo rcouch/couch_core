@@ -149,6 +149,7 @@ start_link(Name, Options) ->
     % launch mochiweb
     {ok, Pid} = case mochiweb_http:start_link(FinalOptions) of
         {ok, MochiPid} ->
+            set_config_port(Name),
             {ok, MochiPid};
         {error, Reason} ->
             io:format("Failure to start Mochiweb: ~s~n",[Reason]),
@@ -161,6 +162,13 @@ start_link(Name, Options) ->
 
 stop() ->
     mochiweb_http:stop(?MODULE).
+
+set_config_port(?MODULE) ->
+    Port = mochiweb_socket_server:get(?MODULE, port),
+    couch_config:set("httpd", "port", integer_to_list(Port), false);
+set_config_port(https) ->
+    Port = mochiweb_socket_server:get(https, port),
+    couch_config:set("ssl", "port", integer_to_list(Port), false).
 
 config_change("httpd", "bind_address") ->
     ?MODULE:stop();
