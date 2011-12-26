@@ -47,6 +47,8 @@ static int on_load(ErlNifEnv*, void**, ERL_NIF_TERM);
 static void on_unload(ErlNifEnv*, void*);
 static __inline void reserve_coll(priv_data_t*, ctx_t*);
 static __inline void release_coll(priv_data_t*, ctx_t*);
+int on_reload(ErlNifEnv*, void**, ERL_NIF_TERM);
+int on_upgrade(ErlNifEnv*, void**, void**, ERL_NIF_TERM);
 
 void
 reserve_coll(priv_data_t* pData, ctx_t *ctx)
@@ -82,12 +84,13 @@ collate_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
     ctx_t ctx;
     int result;
+    priv_data_t* pData;
 
     ctx.env = env;
     ctx.error = 0;
     ctx.coll = NULL;
 
-    priv_data_t* pData = (priv_data_t*) enif_priv_data(env);
+    pData = (priv_data_t*) enif_priv_data(env);
 
     result = collate_binary(pData, &ctx, term_a, term_b, term_has_nocase);
     release_coll(pData, &ctx);
@@ -172,7 +175,7 @@ on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM info)
         return 2;
     }
 
-    pData->collMutex = enif_mutex_create("coll_mutex");
+    pData->collMutex = enif_mutex_create((char *)"coll_mutex");
 
     if (pData->collMutex == NULL) {
         enif_free((char*)pData);
@@ -255,4 +258,4 @@ nif_funcs[] =
     {"collate_nif", 3, collate_nif}
 };
 
-ERL_NIF_INIT(couch_collate, nif_funcs, &on_load, &on_reload, &on_upgrade, &on_unload);
+ERL_NIF_INIT(couch_collate, nif_funcs, &on_load, &on_reload, &on_upgrade, &on_unload)
