@@ -59,7 +59,7 @@ c_src/obj/%.o: c_src/couch_js/%.c $(JS_HEADERS)
 	@$(CC) $(JS_CFLAGS) -c -o $@ $<
 
 couchjs: $(JS_OBJS)
-	@$(CC) $(JS_CFLAGS) -o $@ $^ $(JS_LIBS)
+	@$(CC) $(JS_CFLAGS) -o $@ $^ $(JS_LIBS) -lm
 
 js: $(JS_FILE) $(COFFEE_FILE)
 
