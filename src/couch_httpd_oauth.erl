@@ -128,7 +128,7 @@ serve_oauth(#httpd{mochi_req=MochiReq}=Req, Fun, FailSilently) ->
                 _ -> ""
             end
     end,
-    HeaderParams = oauth_uri:params_from_header_string(AuthHeader),
+    HeaderParams = oauth:header_params_encode(AuthHeader),
     %Realm = couch_util:get_value("realm", HeaderParams),
 
     % get requested path

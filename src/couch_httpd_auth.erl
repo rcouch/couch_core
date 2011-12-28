@@ -120,7 +120,7 @@ proxy_authentification_handler(Req) ->
         nil -> Req;
         Req2 -> Req2
     end.
-    
+
 proxy_auth_user(Req) ->
     XHeaderUserName = couch_config:get("couch_httpd_auth", "x_auth_username",
                                 "X-Auth-CouchDB-UserName"),
