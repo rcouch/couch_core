@@ -1,1 +1,1 @@
-couch_index module.
+couch_replicator module.
