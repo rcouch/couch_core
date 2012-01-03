@@ -26,7 +26,7 @@ docid() ->
 
 main(_) ->
     test_util:init_code_path(),
-    
+
     etap:plan(16),
     case (catch test()) of
         ok ->
@@ -229,7 +229,7 @@ do_request(Request) ->
     [Header, Body] = re:split(R, "\r\n\r\n", [{return, binary}]),
     {ok, {http_response, _, Code, _}, _} =
         erlang:decode_packet(http, Header, []),
-    Json = ejson:decode(Body),
+    Json = jiffy:decode(Body),
     {Code, Json}.
 
 get_json(Json, Path) ->

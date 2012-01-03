@@ -126,7 +126,7 @@ test() ->
 test_regular_request() ->
     case ibrowse:send_req(server(), [], get, []) of
         {ok, _, _, Body} ->
-            {Props} = ejson:decode(Body),
+            {Props} = jiffy:decode(Body),
             Couchdb = couch_util:get_value(<<"couchdb">>, Props),
             Version = couch_util:get_value(<<"version">>, Props),
             Vendor = couch_util:get_value(<<"vendor">>, Props),
@@ -140,7 +140,7 @@ test_regular_request() ->
 test_vhost_request() ->
     case ibrowse:send_req(server(), [], get, [], [{host_header, "example.com"}]) of
         {ok, _, _, Body} ->
-            {JsonBody} = ejson:decode(Body),
+            {JsonBody} = jiffy:decode(Body),
             HasDbNameInfo = proplists:is_defined(<<"db_name">>, JsonBody),
             etap:is(HasDbNameInfo, true, "should return database info");
         _Else ->
@@ -151,7 +151,7 @@ test_vhost_request_with_qs() ->
     Url = server() ++ "doc1?revs_info=true",
     case ibrowse:send_req(Url, [], get, [], [{host_header, "example.com"}]) of
         {ok, _, _, Body} ->
-            {JsonProps} = ejson:decode(Body),
+            {JsonProps} = jiffy:decode(Body),
             HasRevsInfo = proplists:is_defined(<<"_revs_info">>, JsonProps),
             etap:is(HasRevsInfo, true, "should return _revs_info");
         _Else ->
@@ -171,7 +171,7 @@ test_vhost_request_with_global() ->
 test_vhost_requested_path() ->
     case ibrowse:send_req(server(), [], get, [], [{host_header, "example1.com"}]) of
         {ok, _, _, Body} ->
-            {Json} = ejson:decode(Body),
+            {Json} = jiffy:decode(Body),
             etap:is(case proplists:get_value(<<"requested_path">>, Json) of
                 <<"/">> -> true;
                 _ -> false
@@ -183,7 +183,7 @@ test_vhost_requested_path() ->
 test_vhost_requested_path_path() ->
     case ibrowse:send_req(server(), [], get, [], [{host_header, "example1.com"}]) of
         {ok, _, _, Body} ->
-            {Json} = ejson:decode(Body),
+            {Json} = jiffy:decode(Body),
             etap:is(case proplists:get_value(<<"path">>, Json) of
                 <<"/etap-test-db/_design/doc1/_show/test">> -> true;
                 _ -> false
@@ -195,7 +195,7 @@ test_vhost_requested_path_path() ->
 test_vhost_request_wildcard()->
     case ibrowse:send_req(server(), [], get, [], [{host_header, "test.example.com"}]) of
         {ok, _, _, Body} ->
-            {Json} = ejson:decode(Body),
+            {Json} = jiffy:decode(Body),
             etap:is(case proplists:get_value(<<"path">>, Json) of
                 <<"/etap-test-db/_design/doc1/_show/test">> -> true;
                 _ -> false
@@ -207,7 +207,7 @@ test_vhost_request_wildcard()->
 test_vhost_request_replace_var() ->
     case ibrowse:send_req(server(), [], get, [], [{host_header,"etap-test-db.example1.com"}]) of
         {ok, _, _, Body} ->
-            {JsonBody} = ejson:decode(Body),
+            {JsonBody} = jiffy:decode(Body),
             HasDbNameInfo = proplists:is_defined(<<"db_name">>, JsonBody),
             etap:is(HasDbNameInfo, true, "should return database info");
         _Else -> etap:is(false, true, <<"ibrowse fail">>)
@@ -216,7 +216,7 @@ test_vhost_request_replace_var() ->
 test_vhost_request_replace_var1() ->
     case ibrowse:send_req(server(), [], get, [], [{host_header, "doc1.etap-test-db.example1.com"}]) of
         {ok, _, _, Body} ->
-            {Json} = ejson:decode(Body),
+            {Json} = jiffy:decode(Body),
             etap:is(case proplists:get_value(<<"path">>, Json) of
                 <<"/etap-test-db/_design/doc1/_show/test">> -> true;
                 _ -> false
@@ -227,7 +227,7 @@ test_vhost_request_replace_var1() ->
 test_vhost_request_replace_wildcard() ->
     case ibrowse:send_req(server(), [], get, [], [{host_header,"etap-test-db.example2.com"}]) of
         {ok, _, _, Body} ->
-            {JsonBody} = ejson:decode(Body),
+            {JsonBody} = jiffy:decode(Body),
             HasDbNameInfo = proplists:is_defined(<<"db_name">>, JsonBody),
             etap:is(HasDbNameInfo, true, "should return database info");
         _Else -> etap:is(false, true, <<"ibrowse fail">>)
@@ -237,7 +237,7 @@ test_vhost_request_path() ->
     Uri = server() ++ "test",
     case ibrowse:send_req(Uri, [], get, [], [{host_header, "example.com"}]) of
         {ok, _, _, Body} ->
-            {JsonBody} = ejson:decode(Body),
+            {JsonBody} = jiffy:decode(Body),
             HasDbNameInfo = proplists:is_defined(<<"db_name">>, JsonBody),
             etap:is(HasDbNameInfo, true, "should return database info");
         _Else -> etap:is(false, true, <<"ibrowse fail">>)
@@ -247,7 +247,7 @@ test_vhost_request_path1() ->
     Url = server() ++ "test/doc1?revs_info=true",
     case ibrowse:send_req(Url, [], get, [], []) of
         {ok, _, _, Body} ->
-            {JsonProps} = ejson:decode(Body),
+            {JsonProps} = jiffy:decode(Body),
             HasRevsInfo = proplists:is_defined(<<"_revs_info">>, JsonProps),
             etap:is(HasRevsInfo, true, "should return _revs_info");
         _Else -> etap:is(false, true, <<"ibrowse fail">>)
@@ -257,7 +257,7 @@ test_vhost_request_path2() ->
     Uri = server() ++ "test",
     case ibrowse:send_req(Uri, [], get, [], [{host_header,"etap-test-db.example2.com"}]) of
         {ok, _, _, Body} ->
-            {JsonBody} = ejson:decode(Body),
+            {JsonBody} = jiffy:decode(Body),
             HasDbNameInfo = proplists:is_defined(<<"db_name">>, JsonBody),
             etap:is(HasDbNameInfo, true, "should return database info");
         _Else -> etap:is(false, true, <<"ibrowse fail">>)
@@ -267,7 +267,7 @@ test_vhost_request_path3() ->
     Uri = server() ++ "test1",
     case ibrowse:send_req(Uri, [], get, [], []) of
         {ok, _, _, Body} ->
-            {Json} = ejson:decode(Body),
+            {Json} = jiffy:decode(Body),
             etap:is(case proplists:get_value(<<"path">>, Json) of
                 <<"/etap-test-db/_design/doc1/_show/test">> -> true;
                 _ -> false
@@ -279,7 +279,7 @@ test_vhost_request_to_root() ->
     Uri = server(),
     case ibrowse:send_req(Uri, [], get, [], []) of
         {ok, _, _, Body} ->
-            {JsonBody} = ejson:decode(Body),
+            {JsonBody} = jiffy:decode(Body),
             HasCouchDBWelcome = proplists:is_defined(<<"couchdb">>, JsonBody),
             etap:is(HasCouchDBWelcome, true, "should allow redirect to /");
         _Else -> etap:is(false, true, <<"ibrowse fail">>)
@@ -313,7 +313,7 @@ test_vhost_request_with_oauth(Db) ->
 
     case ibrowse:send_req(server(), [], get, [], [{host_header, "oauth-example.com"}]) of
         {ok, "401", _, Body} ->
-            {JsonBody} = ejson:decode(Body),
+            {JsonBody} = jiffy:decode(Body),
             etap:is(
                 couch_util:get_value(<<"error">>, JsonBody),
                 <<"unauthorized">>,
@@ -341,7 +341,7 @@ test_vhost_request_with_oauth(Db) ->
 
     case ibrowse:send_req(OAuthUrl, [], get, [], [{host_header, "oauth-example.com"}]) of
         {ok, "200", _, Body2} ->
-            {JsonBody2} = ejson:decode(Body2),
+            {JsonBody2} = jiffy:decode(Body2),
             etap:is(couch_util:get_value(<<"name">>, JsonBody2), <<"test">>,
                 "should return ddoc info with OAuth credentials");
         Error2 ->
@@ -356,7 +356,7 @@ test_vhost_request_with_oauth(Db) ->
 
     case ibrowse:send_req(OAuthUrl2, [], get, [], [{host_header, "oauth-example.com"}]) of
         {ok, "401", _, Body3} ->
-            {JsonBody3} = ejson:decode(Body3),
+            {JsonBody3} = jiffy:decode(Body3),
             etap:is(
                 couch_util:get_value(<<"error">>, JsonBody3),
                 <<"unauthorized">>,

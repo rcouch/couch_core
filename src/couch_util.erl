@@ -30,6 +30,7 @@
 -export([with_db/2]).
 -export([start_app_deps/1]).
 -export([capitalize/1]).
+-export([json_decode/1]).
 
 -include("couch_db.hrl").
 
@@ -452,3 +453,12 @@ capitalize(S) when is_binary(S) ->
     capitalize(?b2l(S));
 capitalize([H|T]) ->
     [string:to_upper(H)|string:to_lower(T)].
+
+
+json_decode(D) ->
+    try
+        jiffy:decode(D)
+    catch
+        throw:Error ->
+            throw({invalid_json, Error})
+    end.
