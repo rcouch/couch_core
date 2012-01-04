@@ -1,6 +1,7 @@
 # rcouch Makefile
 
 USE_STATIC_ICU := 0
+uname_S := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 
 STATICLIBS?=libs
 CC?=cc
@@ -16,7 +17,7 @@ JS_OBJS= \
 	c_src/obj/main.o \
 	c_src/obj/utf8.o \
 	c_src/obj/util.o
-	
+
 
 JS_FILE= share/server/main.js
 JS_FILE_COMPONENTS= share/server/json2.js \
@@ -27,13 +28,13 @@ JS_FILE_COMPONENTS= share/server/json2.js \
 					share/server/util.js \
 					share/server/validate.js \
 					share/server/views.js
-JS_FILE_COMPONENTS_LAST = share/server/loop.js    
+JS_FILE_COMPONENTS_LAST = share/server/loop.js
 COFFEE_FILE= share/server/main-coffee.js
 COFFEE_FILE_COMPONENTS_LAST = share/server/coffee-script.js \
 							  share/server/loop.js
 
-ICU_CFLAGS=$(shell icu-config --cflags 2>/dev/null) $(DRV_CFLAGS) 
-ICU_LIBS=$(shell icu-config --ldflags 2>/dev/null) $(DRV_LDFLAGS) 
+ICU_CFLAGS=$(shell icu-config --cflags 2>/dev/null) $(DRV_CFLAGS)
+ICU_LIBS=$(shell icu-config --ldflags 2>/dev/null) $(DRV_LDFLAGS)
 
 ifeq ($(USE_STATIC_ICU), 1)
 	ICU_CFLAGS=$(DRV_CFLAGS) -I$(STATICLIBS)/icu/include
@@ -42,8 +43,14 @@ ifeq ($(USE_STATIC_ICU), 1)
 			 $(STATICLIBS)/icu/lib/libicuuc.a \
 			 $(STATICLIBS)/icu/lib/libicudata.a
 endif
-			 
-all: compile 
+
+ifeq ($(uname_S),FreeBSD)
+	JS_LIBS=$(STATICLIBS)/js/lib/libjs_static.a \
+			$(STATICLIBS)/nsprpub/lib/libnspr4.a \
+			-lstdc++ -lpthread
+endif
+
+all: compile
 	@install couchspawnkillable/couchspawnkillable.sh priv/couchspawnkillable
 
 compile: couchjs js collate
