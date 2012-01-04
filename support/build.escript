@@ -1,7 +1,7 @@
 %% -*- tab-width: 4;erlang-indent-level: 4;indent-tabs-mode: nil -*-
 %% ex: ft=erlang ts=4 sw=4 et
 %%%
-%%% This file is part of couch_core released under the Apache 2 license. 
+%%% This file is part of couch_core released under the Apache 2 license.
 %%% See the NOTICE for more information.
 
 
@@ -34,7 +34,7 @@ build_darwin() ->
 
     %% build static libs@
     sh(rootdir() ++ "/support/build_libs.sh", Env),
-    
+
     %% make couchjs, icu driver and nifs
     MakeArgs = case is_arch("R14") of
         true -> " all";
@@ -51,14 +51,14 @@ build_unix() ->
 
     %% build static libs@
     sh(rootdir() ++ "/support/build_libs.sh", Env),
-    
+
     %% make couchjs, icu driver and nifs
     MakeArgs = case is_arch("R14") of
         true -> " all";
         false -> ""
     end,
     io:format("==> couchjs, couch_collate (compile)~n", []),
-    sh("make -f c_src/Makefile.unix" ++ MakeArgs, Env),
+    sh(unix_make() ++ " -f c_src/Makefile.unix" ++ MakeArgs, Env),
     erlang:halt(0).
 
 clean_darwin() ->
@@ -81,7 +81,7 @@ clean_unix() ->
     io:format("[INFO] To clean static libs run the command" ++
         "'cd " ++ rootdir() ++ " && ./support/build_libs.sh clean' .~n", []),
 
-    sh("make -f c_src/Makefile.unix clean", Env),
+    sh(unix_make() ++ " -f c_src/Makefile.unix clean", Env),
     erlang:halt(0).
 
 build_win() ->
@@ -91,6 +91,15 @@ build_win() ->
 clean_win() ->
     io:format("Windows platform isn't supported yet", []),
     erlang:halt(1).
+
+
+unix_make() ->
+    case os:type() of
+        {unix, freebsd} ->
+            "gmake";
+        {unix, _} ->
+            "make"
+    end.
 
 
 
@@ -116,9 +125,9 @@ sh_loop(Port) ->
         {Port, {data, {_, "_port_cmd_status_ " ++ Status}}} ->
             (catch erlang:port_close(Port)), % sigh () for indentation
             case list_to_integer(Status) of
-                0  -> 
+                0  ->
                     ok;
-                Rc -> 
+                Rc ->
                     io:format("error, ~p~n", [Rc]),
                     erlang:halt(1)
             end;
@@ -170,7 +179,7 @@ wordsize() ->
         error:badarg ->
             integer_to_list(8 * erlang:system_info(wordsize))
     end.
- 
+
 
 %%
 %% Given a string, determine if it is expandable
