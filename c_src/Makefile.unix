@@ -1,11 +1,11 @@
+# rcouch Makefile
+
+USE_STATIC_ICU := 0
 
 STATICLIBS?=libs
-
-USE_STATIC_ICU:=0
-
-CC=cc
-GCC=gcc
-CXX=g++
+CC?=cc
+GCC?=gcc
+CXX?=g++
 
 JS_HEADERS= \
 	c_src/couch_js/utf8.h \
