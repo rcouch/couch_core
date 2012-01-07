@@ -17,7 +17,6 @@
     oauth = nil,
     headers = [
         {"Accept", "application/json"},
-        {"Content-Type", "application/json"},
         {"User-Agent", "CouchDB/" ++ couch:version() ++ " " ++
             couch_httpd:vendor_id()}
     ],
