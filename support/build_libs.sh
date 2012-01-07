@@ -10,7 +10,7 @@ CORE_TOP=`pwd`
 
 CURLBIN=`which curl`
 if ! test -n "CURLBIN"; then
-    display_error "Error: curl is required. Add it to 'PATH'" 
+    display_error "Error: curl is required. Add it to 'PATH'"
     exit 1
 fi
 
@@ -86,14 +86,14 @@ fetch()
 }
 
 
-clean_nspr() 
+clean_nspr()
 {
     rm -rf $STATICLIBS/nspr*
     rm -f $DISTDIR/$NSPR_DISTNAME
 }
 
 
-build_nspr() 
+build_nspr()
 {
     NSPR_CONFIGURE_ENV=""
     case "$SYSTEM" in
@@ -118,8 +118,8 @@ build_nspr()
     esac
 
     fetch $NSPR_DISTNAME $NSPR_SITE
-   
-    echo "==> build nspr" 
+
+    echo "==> build nspr"
     cd $STATICLIBS
     $GUNZIP -c $DISTDIR/$NSPR_DISTNAME | $TAR xf -
 
@@ -147,7 +147,7 @@ build_js()
 
     cd $STATICLIBS
     $GUNZIP -c $DISTDIR/$JS_DISTNAME | $TAR -xf -
-    
+
     echo "==> build js"
     cd $JSDIR/js/src
     patch -p0 -i $PATCHES/js/patch-jsprf_cpp
@@ -171,7 +171,7 @@ build_js()
     cp $JSDIR/js/src/libjs_static.a $JS_LIBDIR
 }
 
-clean_icu() 
+clean_icu()
 {
     rm -rf $STATICLIBS/icu*
     rm -f $DISTDIR/$ICU_DISTNAME
@@ -180,18 +180,18 @@ clean_icu()
 build_icu()
 {
     fetch $ICU_DISTNAME $ICU_SITE
-    
+
     mkdir -p $ICUDIR
 
     echo "==> build icu4c"
-    
+
     cd $STATICLIBS
     $GUNZIP -c $DISTDIR/$ICU_DISTNAME | $TAR xf - -C $STATICLIBS/icu_src
 
     # apply patches
     cd $STATICLIBS/icu_src
     for P in $PATCHES/icu/*.patch; do \
-        (patch -p0 -i $P || echo "skipping patch"); \
+        (patch -p0 -i $P || echo "skipping patch"); \
     done
 
     cd $ICUDIR/source
@@ -258,9 +258,9 @@ for couch_core.
 
 Commands:
 
-    all:        build couch_core static libs 
+    all:        build couch_core static libs
     clean:      clean static libs
-    -?:         display usage 
+    -?:         display usage
 
 Report bugs at <https://github.com/refuge/couch_core>.
 EOF
@@ -268,10 +268,10 @@ EOF
 
 
 
-if [ "x$1" = "x" ]; then 
+if [ "x$1" = "x" ]; then
     do_setup
     do_builddeps
-	exit 0 
+	exit 0
 fi
 
 case "$1" in
@@ -281,8 +281,8 @@ case "$1" in
         do_builddeps
         ;;
     clean)
-        shift 1 
-        clean 
+        shift 1
+        clean
         ;;
     help|--help|-h|-?)
         usage
