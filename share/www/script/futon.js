@@ -25,7 +25,7 @@ function $$(node) {
 (function($) {
 
   function Session() {
-    
+
     function doLogin(name, password, callback) {
       $.couch.login({
         name : name,
@@ -40,14 +40,14 @@ function $$(node) {
         }
       });
     };
-    
+
     function doSignup(name, password, callback, runLogin) {
       $.couch.signup({
         name : name
       }, password, {
         success : function() {
           if (runLogin) {
-            doLogin(name, password, callback);            
+            doLogin(name, password, callback);
           } else {
             callback();
           }
@@ -62,7 +62,7 @@ function $$(node) {
         }
       });
     };
-    
+
     function validateUsernameAndPassword(data, callback) {
       if (!data.name || data.name.length == 0) {
         callback({name: "Please enter a name."});
@@ -78,26 +78,28 @@ function $$(node) {
       };
       return true;
     };
-    
+
     function createAdmin() {
       $.showDialog("dialog/_create_admin.html", {
         submit: function(data, callback) {
           if (!validateUsernameAndPassword(data, callback)) return;
           $.couch.config({
             success : function() {
-              doLogin(data.name, data.password, function(errors) {
-                if(!$.isEmptyObject(errors)) {
-                  callback(errors);
-                  return;
-                }
-                doSignup(data.name, null, function(errors) {
-                  if (errors && errors.name && errors.name.indexOf && errors.name.indexOf("taken") == -1) {
+              setTimeout(function() {
+                doLogin(data.name, data.password, function(errors) {
+                  if(!$.isEmptyObject(errors)) {
                     callback(errors);
-                  } else {
-                    callback();
+                    return;
                   }
-                  }, false);
-                });            
+                  doSignup(data.name, null, function(errors) {
+                    if (errors && errors.name && errors.name.indexOf && errors.name.indexOf("taken") == -1) {
+                      callback(errors);
+                    } else {
+                      callback();
+                    }
+                    }, false);
+                  });
+              }, 200);
             }
           }, "admins", data.name, data.password);
         }
@@ -208,7 +210,7 @@ function $$(node) {
       $("#userCtx .createadmin").click(createAdmin);
       $("#userCtx .changepass").click(changePassword);
     };
-    
+
     this.sidebar = function() {
       // get users db info?
       $("#userCtx span").hide();
