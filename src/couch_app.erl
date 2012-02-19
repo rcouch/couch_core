@@ -20,7 +20,6 @@
 
 start(_Type, _Args) ->
     couch_util:start_app_deps(couch),
-    catch erlang:system_flag(scheduler_bind_type, default_bind),
     IniFiles = get_ini_files(),
     couch_server_sup:start_link(IniFiles).
 
