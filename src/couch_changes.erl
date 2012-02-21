@@ -153,6 +153,21 @@ os_filter_fun(FilterName, Style, Req, Db) ->
             "filter parameter must be of the form `designname/filtername`"})
     end.
 
+parse_view_param({json_req, {Props}}) ->
+    {Params} = couch_util:get_value(<<"query">>, Props),
+    parse_view_param1(couch_util:get_value(<<"view">>, Params));
+
+parse_view_param(Req) ->
+    parse_view_param1(?l2b(couch_httpd:qs_value(Req, "view", ""))).
+
+parse_view_param1(ViewParam) ->
+    case re:split(ViewParam, <<"/">>) of
+    [DesignName, ViewName] ->
+        {DesignName, ViewName};
+    _ ->
+        throw({bad_request, "Invalid `view` parameter."})
+    end.
+
 builtin_filter_fun("_doc_ids", Style, {json_req, {Props}}, _Db) ->
     DocIds = couch_util:get_value(<<"doc_ids">>, Props),
     {filter_docids(DocIds, Style), DocIds};
@@ -166,8 +181,8 @@ builtin_filter_fun("_doc_ids", Style, #httpd{method='GET'}=Req, _Db) ->
 builtin_filter_fun("_design", Style, _Req, _Db) ->
     {filter_designdoc(Style), []};
 builtin_filter_fun("_view", Style, Req, Db) ->
-    ViewName = couch_httpd:qs_value(Req, "view", ""),
-    {filter_view(ViewName, Style, Db), []};
+    {DName, VName} = parse_view_param(Req),
+    {filter_view({DName, VName} , Style, Db), []};
 builtin_filter_fun(_FilterName, _Style, _Req, _Db) ->
     throw({bad_request, "unknown builtin filter name"}).
 
@@ -191,38 +206,30 @@ filter_designdoc(Style) ->
             end
     end.
 
-filter_view("", _Style, _Db) ->
-    throw({bad_request, "`view` filter parameter is not provided."});
-filter_view(ViewName, Style, Db) ->
-    case [list_to_binary(couch_httpd:unquote(Part))
-            || Part <- string:tokens(ViewName, "/")] of
-        [] ->
-            throw({bad_request, "Invalid `view` parameter."});
-        [DName, VName] ->
-            DesignId = <<"_design/", DName/binary>>,
-            DDoc = couch_httpd_db:couch_doc_open(Db, DesignId, nil, [ejson_body]),
-            % validate that the ddoc has the filter fun
-            #doc{body={Props}} = DDoc,
-            couch_util:get_nested_json_value({Props}, [<<"views">>, VName]),
-            fun(Db2, DocInfo) ->
-                DocInfos =
-                case Style of
-                main_only ->
-                    [DocInfo];
-                all_docs ->
-                    [DocInfo#doc_info{revs=[Rev]}|| Rev <- DocInfo#doc_info.revs]
-                end,
-                Docs = [Doc || {ok, Doc} <- [
-                        couch_db:open_doc(Db2, DocInfo2, [deleted, conflicts])
-                            || DocInfo2 <- DocInfos]],
-                {ok, Passes} = couch_query_servers:filter_view(
-                    DDoc, VName, Docs
-                ),
-                [{[{<<"rev">>, couch_doc:rev_to_str({RevPos,RevId})}]}
-                    || {Pass, #doc{revs={RevPos,[RevId|_]}}}
-                    <- lists:zip(Passes, Docs), Pass == true]
-            end
-        end.
+filter_view({DName, VName}, Style, Db) ->
+    DesignId = <<"_design/", DName/binary>>,
+    DDoc = couch_httpd_db:couch_doc_open(Db, DesignId, nil, [ejson_body]),
+    % validate that the ddoc has the filter fun
+    #doc{body={Props}} = DDoc,
+    couch_util:get_nested_json_value({Props}, [<<"views">>, VName]),
+    fun(Db2, DocInfo) ->
+        DocInfos =
+        case Style of
+        main_only ->
+            [DocInfo];
+        all_docs ->
+            [DocInfo#doc_info{revs=[Rev]}|| Rev <- DocInfo#doc_info.revs]
+        end,
+        Docs = [Doc || {ok, Doc} <- [
+                couch_db:open_doc(Db2, DocInfo2, [deleted, conflicts])
+                    || DocInfo2 <- DocInfos]],
+        {ok, Passes} = couch_query_servers:filter_view(
+            DDoc, VName, Docs
+        ),
+        [{[{<<"rev">>, couch_doc:rev_to_str({RevPos,RevId})}]}
+            || {Pass, #doc{revs={RevPos,[RevId|_]}}}
+            <- lists:zip(Passes, Docs), Pass == true]
+    end.
 
 builtin_results(Style, [#rev_info{rev=Rev}|_]=Revs) ->
     case Style of
