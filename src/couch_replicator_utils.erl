@@ -91,6 +91,8 @@ maybe_append_filters(Base,
             case get_value(doc_ids, Options) of
             undefined ->
                 [];
+            <<"_", _/binary>> = Filter ->
+                [Filter, get_value(query_params, Options, {[]})];
             DocIds ->
                 [DocIds]
             end;
