@@ -18,12 +18,13 @@
     idx_name,
     language,
     design_opts=[],
+    seq_indexed=false,
     lib,
     views,
     id_btree=nil,
+    seq_btree=nil,
     update_seq=0,
     purge_seq=0,
-
     first_build,
     partial_resp_pid,
     doc_acc,
@@ -49,6 +50,7 @@
     seq=0,
     purge_seq=0,
     id_btree_state=nil,
+    seq_btree_state=nil,
     view_states=nil
 }).
 

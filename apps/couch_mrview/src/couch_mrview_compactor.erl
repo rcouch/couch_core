@@ -19,6 +19,8 @@
 
 -record(acc, {
    btree = nil,
+   id_btree = nil,
+   seq_btree = nil,
    last_id = nil,
    kvs = [],
    kvs_size = 0,
@@ -37,8 +39,9 @@ compact(State) ->
     #mrst{
         db_name=DbName,
         idx_name=IdxName,
+        seq_indexed=SeqIndexed,
         sig=Sig,
-        update_seq=Seq,
+        update_seq=UpdateSeq,
         id_btree=IdBtree,
         views=Views
     } = State,
@@ -51,6 +54,7 @@ compact(State) ->
 
     #mrst{
         id_btree = EmptyIdBtree,
+        seq_btree = EmptySeqBtree,
         views = EmptyViews
     } = EmptyState,
 
@@ -74,7 +78,8 @@ compact(State) ->
     BufferSize = list_to_integer(BufferSize0),
 
     FoldFun = fun({DocId, _} = KV, Acc) ->
-        #acc{btree = Bt, kvs = Kvs, kvs_size = KvsSize, last_id = LastId} = Acc,
+        #acc{id_btree = IdBt, seq_btree = SeqBt, kvs = Kvs, kvs_size =
+            KvsSize, last_id = LastId} = Acc,
         if DocId =:= LastId ->
             % COUCHDB-999 regression test
             ?LOG_ERROR("Duplicate docid `~s` detected in view group `~s`"
@@ -86,20 +91,25 @@ compact(State) ->
         KvsSize2 = KvsSize + ?term_size(KV),
         case KvsSize2 >= BufferSize of
             true ->
-                {ok, Bt2} = couch_btree:add(Bt, lists:reverse([KV | Kvs])),
+                ToAdd = lists:reverse([KV | Kvs]),
+                {ok, IdBt2} = couch_btree:add(IdBt, ToAdd),
+                SeqBt2 = maybe_index_seqs(SeqBt, ToAdd, SeqIndexed),
                 Acc2 = update_task(Acc, 1 + length(Kvs)),
-                {ok, Acc2#acc{
-                    btree = Bt2, kvs = [], kvs_size = 0, last_id = DocId}};
+                {ok, Acc2#acc{id_btree = IdBt2, seq_btree = SeqBt2, kvs = [],
+                        kvs_size = 0, last_id = DocId}};
             _ ->
                 {ok, Acc#acc{
                     kvs = [KV | Kvs], kvs_size = KvsSize2, last_id = DocId}}
         end
     end,
 
-    InitAcc = #acc{total_changes = TotalChanges, btree = EmptyIdBtree},
+    InitAcc = #acc{total_changes = TotalChanges, id_btree =
+        EmptyIdBtree, seq_btree=EmptySeqBtree},
     {ok, _, FinalAcc} = couch_btree:foldl(IdBtree, FoldFun, InitAcc),
-    #acc{btree = Bt3, kvs = Uncopied} = FinalAcc,
-    {ok, NewIdBtree} = couch_btree:add(Bt3, lists:reverse(Uncopied)),
+    #acc{id_btree = IdBt3, seq_btree= SeqBt3, kvs = Uncopied} = FinalAcc,
+    Uncopied1 = lists:reverse(Uncopied),
+    {ok, NewIdBtree} = couch_btree:add(IdBt3, Uncopied1),
+    NewSeqBtree = maybe_index_seqs(SeqBt3, Uncopied1, SeqIndexed),
     FinalAcc2 = update_task(FinalAcc, length(Uncopied)),
 
     {NewViews, _} = lists:mapfoldl(fun({View, EmptyView}, Acc) ->
@@ -109,8 +119,9 @@ compact(State) ->
     unlink(EmptyState#mrst.fd),
     {ok, EmptyState#mrst{
         id_btree=NewIdBtree,
+        seq_btree=NewSeqBtree,
         views=NewViews,
-        update_seq=Seq
+        update_seq=UpdateSeq
     }}.
 
 
@@ -170,5 +181,13 @@ swap_compacted(OldState, NewState) ->
     unlink(OldState#mrst.fd),
     couch_ref_counter:drop(OldState#mrst.refc),
     {ok, NewRefCounter} = couch_ref_counter:start([NewState#mrst.fd]),
-    
+
     {ok, NewState#mrst{refc=NewRefCounter}}.
+
+
+maybe_index_seqs(SeqBt, ToAdd, true) ->
+    SeqsToAdd = couch_mrview_util:to_seqkvs(ToAdd, []),
+    {ok, SeqBt2} = couch_btree:add(SeqBt, SeqsToAdd),
+    SeqBt2;
+maybe_index_seqs(SeqBt, _ToAdd, _) ->
+    SeqBt.

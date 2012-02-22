@@ -17,6 +17,8 @@
 -export([get_info/2]).
 -export([compact/2, compact/3, cancel_compaction/2]).
 -export([cleanup/1]).
+-export([view_changes_since/5, view_changes_since/6,
+        view_changes_since/7]).
 
 -include_lib("couch/include/couch_db.hrl").
 -include_lib("couch_mrview/include/couch_mrview.hrl").
@@ -84,6 +86,50 @@ query_view(Db, {Type, View}, Args, Callback, Acc) ->
     case Type of
         map -> map_fold(Db, View, Args, Callback, Acc);
         red -> red_fold(Db, View, Args, Callback, Acc)
+    end.
+
+view_changes_since(Db, DDoc, VName, StartSeq, Callback) ->
+    view_changes_since(Db, DDoc, VName, StartSeq, Callback, #mrargs{}, []).
+
+view_changes_since(Db, DDoc, VName, StartSeq, Callback, Args) ->
+    view_changes_since(Db, DDoc, VName, StartSeq, Callback, Args, []).
+
+view_changes_since(Db, DDoc, VName, StartSeq, Callback, Args, Acc)
+            when is_list(Args) ->
+    view_changes_since(Db, DDoc, VName, StartSeq, Callback, to_mrargs(Args),
+        Acc);
+
+view_changes_since(Db, DDoc, VName, StartSeq, Callback, Args, Acc) ->
+    #mrargs{direction=Dir} = Args,
+
+    EndSeq = case Dir of
+        fwd -> 16#10000000;
+        rev -> 0
+    end,
+    Args1 = Args#mrargs{start_key = {VName, StartSeq + 1},
+                        end_key = {VName, EndSeq}},
+
+    {ok, {_, View, _}, State} = couch_mrview_util:get_view_state(Db, DDoc,
+        VName, Args1),
+
+    #mrst{seq_indexed=SeqIndexed, seq_btree=SeqBtree} = State,
+
+    case SeqIndexed of
+        false ->
+            {error, seqs_not_indexed};
+        _ ->
+            #mrview{id_num=Id} = View,
+            WrapperFun = fun
+                ({{_ViewID, _Seq}, _DocId}=KV, _Reds, Acc2) ->
+                    Callback(KV, Acc2);
+                (_, _, Acc2) ->
+                    {ok , Acc2}
+            end,
+
+            {ok, _R, AccOut} = couch_btree:fold(SeqBtree, WrapperFun, Acc,
+                    [{start_key, {Id, StartSeq + 1}}, {end_key, {Id, EndSeq}},
+                    {dir, Dir}]),
+            {ok, AccOut}
     end.
 
 
