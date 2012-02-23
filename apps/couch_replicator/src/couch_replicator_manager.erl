@@ -23,6 +23,7 @@
 -export([code_change/3, terminate/2]).
 
 -include_lib("couch/include/couch_db.hrl").
+-include_lib("couch_changes/include/couch_changes.hrl").
 -include("couch_replicator.hrl").
 -include("couch_replicator_js_functions.hrl").
 
