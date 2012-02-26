@@ -120,10 +120,12 @@ update(Idx, Mod, IdxState) ->
     UpdateOpts = Mod:get(update_options, IdxState),
     CommittedOnly = lists:member(committed_only, UpdateOpts),
     IncludeDesign = lists:member(include_design, UpdateOpts),
+    IncludeDeleted = lists:member(include_deleted, UpdateOpts),
     DocOpts = case lists:member(local_seq, UpdateOpts) of
         true -> [conflicts, deleted_conflicts, local_seq];
         _ -> [conflicts, deleted_conflicts]
     end,
+
 
     couch_util:with_db(DbName, fun(Db) ->
         DbUpdateSeq = couch_db:get_update_seq(Db),
@@ -146,7 +148,7 @@ update(Idx, Mod, IdxState) ->
             case {IncludeDesign, DocId} of
                 {false, <<"_design/", _/binary>>} ->
                     {nil, Seq};
-                _ when Deleted ->
+                _ when Deleted, IncludeDeleted /= true ->
                     {#doc{id=DocId, deleted=true}, Seq};
                 _ ->
                     {ok, Doc} = couch_db:open_doc_int(Db, DocInfo, DocOpts),

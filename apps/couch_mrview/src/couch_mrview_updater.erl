@@ -67,7 +67,6 @@ purge(_Db, PurgeSeq, PurgedIdRevs, State) ->
         true ->
             PurgeSeqs = [{ViewId, Seq} || {{ViewId, Seq}, _Id} <-
             couch_mrview_util:to_seqkvs(Lookups, [])],
-
             {ok, SeqBtree1} = couch_btree:add_remove(SeqBtree, [], PurgeSeqs),
             SeqBtree1;
         _ ->
@@ -112,7 +111,8 @@ process_doc(Doc, Seq, #mrst{doc_acc=Acc}=State) when length(Acc) > 100 ->
     process_doc(Doc, Seq, State#mrst{doc_acc=[]});
 process_doc(nil, Seq, #mrst{doc_acc=Acc}=State) ->
     {ok, State#mrst{doc_acc=[{nil, Seq, nil} | Acc]}};
-process_doc(#doc{id=Id, deleted=true}, Seq, #mrst{doc_acc=Acc}=State) ->
+process_doc(#doc{id=Id, deleted=true}, Seq, #mrst{doc_acc=Acc,
+        include_deleted=false}=State) ->
     {ok, State#mrst{doc_acc=[{Id, Seq, deleted} | Acc]}};
 process_doc(#doc{id=Id}=Doc, Seq, #mrst{doc_acc=Acc}=State) ->
     {ok, State#mrst{doc_acc=[{Id, Seq, Doc} | Acc]}}.
@@ -254,16 +254,15 @@ write_kvs(State, UpdateSeq, ViewKVs, DocIdKeys) ->
         first_build=FirstBuild
     } = State,
 
-    {ok, ToRemove, IdBtree2} = update_id_btree(IdBtree, DocIdKeys, FirstBuild),
 
-    SeqBtree2 = case SeqIndexed of
+    {ok, ToRemove, IdBtree2} = update_id_btree(IdBtree, DocIdKeys, FirstBuild),
+    {ok, SeqBtree2} = case SeqIndexed of
         true ->
             ToRemBySeq = [{ViewId, Seq} || {{ViewId, Seq}, _Id} <-
                 couch_mrview_util:to_seqkvs(ToRemove, [])],
-            {ok, SeqBtree1} = update_seq_btree(SeqBtree, DocIdKeys,
-                ToRemBySeq),
-            SeqBtree1;
-        _ -> nil
+            update_seq_btree(SeqBtree, DocIdKeys, ToRemBySeq);
+        _ ->
+            {ok, nil}
     end,
 
     ToRemByView = collapse_rem_keys(ToRemove, dict:new()),

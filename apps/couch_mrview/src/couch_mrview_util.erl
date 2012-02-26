@@ -101,6 +101,8 @@ ddoc_to_mrst(DbName, #doc{id=Id, body={Fields}}) ->
     Lib = couch_util:get_value(<<"lib">>, RawViews, {[]}),
     SeqIndexed = couch_util:get_value(<<"seq_indexed">>, DesignOpts,
         false),
+    IncludeDeleted = couch_util:get_value(<<"include_deleted">>, DesignOpts,
+        false),
 
     IdxState = #mrst{
         db_name=DbName,
@@ -109,7 +111,8 @@ ddoc_to_mrst(DbName, #doc{id=Id, body={Fields}}) ->
         views=Views,
         language=Language,
         design_opts=DesignOpts,
-        seq_indexed=SeqIndexed
+        seq_indexed=SeqIndexed,
+        include_deleted=IncludeDeleted
     },
     SigInfo = {?MRFMT, Views, Language, DesignOpts,
         couch_index_util:sort_lib(Lib)},
@@ -741,6 +744,8 @@ to_seqkvs([], Acc) ->
     lists:reverse(Acc);
 to_seqkvs([{not_found, _} | Rest], Acc) ->
     to_seqkvs(Rest, Acc);
+to_seqkvs([{ok, DocIdKeys} | Rest], Acc) ->
+    to_seqkvs([DocIdKeys | Rest], Acc);
 to_seqkvs([{_Id, {_Seq, []}} | Rest], Acc) ->
     to_seqkvs(Rest, Acc);
 to_seqkvs([{Id, {Seq, Keys}} | Rest], Acc0) ->

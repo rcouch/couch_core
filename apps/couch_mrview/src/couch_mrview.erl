@@ -113,7 +113,6 @@ view_changes_since(Db, DDoc, VName, StartSeq, Callback, Args, Acc) ->
         VName, Args1),
 
     #mrst{seq_indexed=SeqIndexed, seq_btree=SeqBtree} = State,
-
     case SeqIndexed of
         false ->
             {error, seqs_not_indexed};

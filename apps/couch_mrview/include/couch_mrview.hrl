@@ -19,6 +19,7 @@
     language,
     design_opts=[],
     seq_indexed=false,
+    include_deleted=false,
     lib,
     views,
     id_btree=nil,
