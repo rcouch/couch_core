@@ -22,6 +22,7 @@
     filter_fun,
     filter_args = [],
     filter_view,
+    view_args = [],
     include_docs = false,
     conflicts = false,
     db_open_options = []

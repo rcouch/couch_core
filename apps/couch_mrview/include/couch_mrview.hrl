@@ -37,12 +37,14 @@
 
 -record(mrview, {
     id_num,
+    seq_indexed=false,
     update_seq=0,
     purge_seq=0,
     map_names=[],
     reduce_funs=[],
     def,
     btree=nil,
+    seq_btree=nil,
     options=[]
 }).
 

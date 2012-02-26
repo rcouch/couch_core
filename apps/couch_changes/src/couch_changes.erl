@@ -52,7 +52,9 @@ handle_changes(Args0, Req, Db0) ->
 
     Args = case FilterName of
         "_view" ->
-            Args1#changes_args{filter_view=parse_view_param(Req)};
+            ViewArgs = parse_view_args(Req),
+            Args1#changes_args{filter_view=parse_view_param(Req),
+                               view_args=ViewArgs#mrargs{direction=Dir}};
         _ ->
             Args1
     end,
@@ -330,7 +332,8 @@ send_changes(Args, Acc0, FirstRound) ->
         dir = Dir,
         filter = FilterName,
         filter_args = FilterArgs,
-        filter_view = View
+        filter_view = View,
+        view_args = ViewArgs
     } = Args,
     #changes_acc{
         db = Db,
@@ -347,7 +350,7 @@ send_changes(Args, Acc0, FirstRound) ->
                 Db, StartSeq, Dir, fun changes_enumerator/2, Acc0);
         "_view" ->
             send_changes_view(
-                Db, View, StartSeq, Dir, fun view_changes_enumerator/2, Acc0);
+                Db, View, StartSeq, ViewArgs, fun view_changes_enumerator/2, Acc0);
         _ ->
             couch_db:changes_since(
                 Db, StartSeq, fun changes_enumerator/2, [{dir, Dir}], Acc0)
@@ -356,7 +359,7 @@ send_changes(Args, Acc0, FirstRound) ->
         case FilterName of
         "_view" ->
             send_changes_view(
-                Db, View, StartSeq, Dir, fun view_changes_enumerator/2, Acc0);
+                Db, View, StartSeq, ViewArgs, fun view_changes_enumerator/2, Acc0);
         _ ->
             couch_db:changes_since(
                 Db, StartSeq, fun changes_enumerator/2, [{dir, Dir}], Acc0)
@@ -386,12 +389,12 @@ send_changes_design_docs(Db, StartSeq, Dir, Fun, Acc0) ->
     send_lookup_changes(FullDocInfos, StartSeq, Dir, Db, Fun, Acc0).
 
 
-send_changes_view(Db, {DName, VName}, StartSeq, Dir, Fun, Acc0) ->
+send_changes_view(Db, {DName, VName}, StartSeq, Args, Fun, Acc0) ->
     DesignId = <<"_design/", DName/binary>>,
     DDoc = couch_httpd_db:couch_doc_open(Db, DesignId, nil,
         [ejson_body]),
     couch_mrview:view_changes_since(
-        Db, DDoc, VName, StartSeq, Fun, [{direction, Dir}], Acc0).
+        Db, DDoc, VName, StartSeq, Fun, Args, Acc0).
 
 
 send_lookup_changes(FullDocInfos, StartSeq, Dir, Db, Fun, Acc0) ->
@@ -551,7 +554,12 @@ changes_enumerator(DocInfo, Acc) ->
             user_acc = UserAcc2, limit = Limit - 1}}
     end.
 
+view_changes_enumerator({{_ViewId, _Seq}, {Id, _V}}, Acc) ->
+    view_changes_enumerator1(Id, Acc);
 view_changes_enumerator({{_ViewId, _Seq}, Id}, Acc) ->
+    view_changes_enumerator1(Id, Acc).
+
+view_changes_enumerator1(Id, Acc) ->
     #changes_acc{
         filter = FilterFun, callback = Callback, prepend = Prepend,
         user_acc = UserAcc, limit = Limit, resp_type = ResponseType, db = Db,
@@ -668,3 +676,77 @@ filter_docs(Req, Db, DDoc, FName, Docs) ->
     [true, Passes] = couch_query_servers:ddoc_prompt(DDoc, [<<"filters">>, FName],
         [JsonDocs, JsonReq]),
     {ok, Passes}.
+
+parse_view_args({json_req, {Props}}) ->
+    {Query} = couch_util:get_value(<<"query">>, Props, {[]}),
+    parse_view_args1(Query, #mrargs{});
+parse_view_args(Req) ->
+    couch_mrview_http:parse_qs(Req, []).
+
+
+parse_view_args1([], Args) ->
+    Args;
+parse_view_args1([{Key, Val} | Rest], Args) ->
+    Args1 = case Key of
+        <<"reduce">> ->
+            Args#mrargs{reduce=Val};
+        <<"key">> ->
+            Args#mrargs{start_key=Val, end_key=Val};
+        <<"keys">> ->
+            Args#mrargs{keys=Val};
+        <<"startkey">> ->
+            Args#mrargs{start_key=Val};
+        <<"start_key">> ->
+            Args#mrargs{start_key=Val};
+        <<"startkey_docid">> ->
+            Args#mrargs{start_key_docid=Val};
+        <<"start_key_doc_id">> ->
+            Args#mrargs{start_key_docid=Val};
+        <<"endkey">> ->
+            Args#mrargs{end_key=Val};
+        <<"end_key">> ->
+            Args#mrargs{end_key=Val};
+        <<"endkey_docid">> ->
+            Args#mrargs{end_key_docid=Val};
+        <<"end_key_doc_id">> ->
+            Args#mrargs{end_key_docid=Val};
+        <<"limit">> ->
+            Args#mrargs{limit=Val};
+        <<"count">> ->
+            throw({query_parse_error, <<"QS param `count` is not `limit`">>});
+        <<"stale">> when Val == <<"ok">> ->
+            Args#mrargs{stale=ok};
+        <<"stale">> when Val == <<"update_after">> ->
+            Args#mrargs{stale=update_after};
+        <<"stale">> ->
+            throw({query_parse_error, <<"Invalid value for `stale`.">>});
+        <<"descending">> ->
+            case Val of
+                true -> Args#mrargs{direction=rev};
+                _ -> Args#mrargs{direction=fwd}
+            end;
+        <<"skip">> ->
+            Args#mrargs{skip=Val};
+        <<"group">> ->
+            case Val of
+                true -> Args#mrargs{group_level=exact};
+                _ -> Args#mrargs{group_level=0}
+            end;
+        <<"group_level">> ->
+            Args#mrargs{group_level=Val};
+        <<"inclusive_end">> ->
+            Args#mrargs{inclusive_end=Val};
+        <<"include_docs">> ->
+            Args#mrargs{include_docs=Val};
+        <<"update_seq">> ->
+            Args#mrargs{update_seq=Val};
+        <<"conflicts">> ->
+            Args#mrargs{conflicts=Val};
+        <<"list">> ->
+            Args#mrargs{list=Val};
+        <<"callback">> ->
+            Args#mrargs{callback=Val};
+        _ ->
+            Args#mrargs{extra=[{Key, Val} | Args#mrargs.extra]}
+    end,
+    parse_view_args1(Rest, Args1).
