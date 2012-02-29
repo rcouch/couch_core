@@ -200,7 +200,8 @@ couchTests.changes = function(debug) {
       "conflicted" : "function(doc, req) { return (doc._conflicts);}"
     },
     options : {
-      local_seq : true
+      local_seq : true,
+      seq_indexed: true
     },
     views : {
       local_seq : {
