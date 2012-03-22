@@ -4,7 +4,7 @@ couch_core
 couch_core is a static distribution of couchdb using rebar. It aims to be
 embed in your applications or be part of custom distribution of couchdb.
 
-couch_core is brought you by the [Refugre project](http://refuge.io)/
+couch_core is brought you by the [Refuge project](http://refuge.io).
 
 Based on the couchdb code it is tagged from time to time for stability
 purpose. At some point some supported branch may appear.
