@@ -26,8 +26,6 @@ Futon:
 Version 1.2.0
 -------------
 
-This version has not been released yet.
-
 Authentication:
 
  * Fix use of OAuth with VHosts and URL rewriting.
@@ -52,6 +50,10 @@ Build System:
    used by the command line JS test runner. If cURL is available
    when building CouchJS you can enable the HTTP bindings by
    passing -H on the command line.
+ * Temporarily made `make check` pass with R15B. A more thorough
+   fix is in the works (COUCHDB-1424).
+ * Fixed --with-js-include and --with-js-lib options.
+ * Added --with-js-lib-name option.
 
 HTTP Interface:
 
@@ -74,14 +76,16 @@ Replicator:
  * Added optional field `since_seq` to replication objects/documents.
    It allows to bootstrap a replication from a specific source sequence
    number.
- * Simpler replication cancelation. In addition to the current method,
+ * Simpler replication cancellation. In addition to the current method,
    replications can now be canceled by specifying the replication ID
    instead of the original replication object/document.
 
 Storage System:
 
  * Added optional database and view index file compression (using Google's
-   snappy or zlib's deflate).
+   snappy or zlib's deflate). This feature is enabled by default, but it
+   can be disabled by adapting local.ini accordingly. The on-disk format
+   is upgraded on compaction and new DB/view creation to support this.
  * Several performance improvements, most notably regarding database writes
    and view indexing.
  * Computation of the size of the latest MVCC snapshot data and all its
@@ -102,6 +106,8 @@ View Server:
  * Fixed old index file descriptor leaks after a view cleanup.
  * The requested_path property keeps the pre-rewrite path even when no VHost
    configuration is matched.
+ * Fixed incorrect reduce query results when using pagination parameters.
+ * Made icu_driver work with Erlang R15B and later.
 
 OAuth:
 
@@ -211,6 +217,52 @@ Futon:
 URL Rewriter & Vhosts:
 
  * Fix for variable substituion
+
+Version 1.0.3
+-------------
+
+General:
+
+ * Fixed compatibility issues with Erlang R14B02.
+
+HTTP Interface:
+
+ * Fix bug that allows invalid UTF-8 after valid escapes.
+ * The query parameter `include_docs` now honors the parameter `conflicts`.
+   This applies to queries against map views, _all_docs and _changes.
+ * Added support for inclusive_end with reduce views.
+
+Storage System:
+
+ * More performant queries against _changes and _all_docs when using the
+  `include_docs` parameter.
+
+Replicator:
+
+ * Enabled replication over IPv6.
+ * Fixed for crashes in continuous and filtered changes feeds.
+ * Fixed error when restarting replications in OTP R14B02.
+ * Upgrade ibrowse to version 2.2.0.
+ * Fixed bug when using a filter and a limit of 1.
+
+Security:
+
+ * Fixed OAuth signature computation in OTP R14B02.
+ * Handle passwords with : in them.
+
+Futon:
+
+ * Made compatible with jQuery 1.5.x.
+
+Etap Test Suite:
+
+ * Etap tests no longer require use of port 5984. They now use a randomly
+   selected port so they won't clash with a running CouchDB.
+
+Windows:
+
+ * Windows builds now require ICU >= 4.4.0 and Erlang >= R14B03. See
+   COUCHDB-1152, and COUCHDB-963 + OTP-9139 for more information.
 
 Version 1.0.2
 -------------
