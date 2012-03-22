@@ -18,10 +18,7 @@ build-aux
 *.dSYM
 *.sw*
 *.gz
-
-# relase
-rel/couch
-dev
+*.beam
 
 # couch
 apps/couch/couchjs
@@ -32,7 +29,11 @@ apps/couch/priv/couchspawnkillable
 apps/couch/libs
 apps/couch/share/server/main.js
 apps/couch/share/server/main-coffee.js
+apps/couch_index/ebin
+apps/couch_replicator/ebin
+apps/couch_mrview/ebin
+apps/couch_changes/ebin
 
 # other
 deps
-ebin
+ebin/*.beam
