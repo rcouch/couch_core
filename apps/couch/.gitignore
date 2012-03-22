@@ -1,0 +1,34 @@
+*.beam
+*.gz
+*.tpl
+*.o
+*.lo
+*.la
+*.m4
+*.in
+*~
+*.orig
+*.rej
+erl_crash.dump
+configure
+autom4te.cache
+build-aux
+*.diff
+.DS_Store
+*.dSYM
+*.sw*
+*.gz
+
+# couch
+couchjs
+
+c_src/obj/*.so
+priv/*.so
+priv/couchspawnkillable
+libs
+share/server/main.js
+share/server/main-coffee.js
+
+# other
+deps
+ebin
