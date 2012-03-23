@@ -26,13 +26,13 @@ handle_changes_req(#httpd{path_parts=[_,<<"_changes">>]}=Req, _Db) ->
 handle_changes_req1(Req, #db{name=DbName}=Db) ->
     AuthDbName = ?l2b(couch_config:get("couch_httpd_auth",
             "authentication_db")),
-    case AuthDbName of
-    DbName ->
+    case DbName of
+    AuthDbName ->
         case (catch couch_db:check_is_admin(Db)) of
         ok ->
             do_changes_req(Req, Db);
         _ ->
-            throw({forbidden, <<"Only admins can access _users">>})
+            throw({unauthorized, <<"Only admins can access _users">>})
         end;
     _ ->
         do_changes_req(Req, Db)
@@ -85,7 +85,7 @@ do_changes_req(Db, Req, #changes_args{feed=normal}, ChangesFun, MakeCallback) ->
                     [{"ETag", CurrentEtag}]),
                 ChangesFun(MakeCallback(Resp))
         end);
-do_changes_req(Db, Req, _ChangesArgs, ChangesFun, MakeCallback) ->
+do_changes_req(_Db, Req, _ChangesArgs, ChangesFun, MakeCallback) ->
     % "longpoll" or "continuous"
     {ok, Resp} = couch_httpd:start_json_response(Req, 200),
     ChangesFun(MakeCallback(Resp)).
