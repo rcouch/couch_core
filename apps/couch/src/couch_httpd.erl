@@ -41,9 +41,25 @@ start_link(https) ->
     Port = couch_config:get("ssl", "port", "6984"),
     CertFile = couch_config:get("ssl", "cert_file", nil),
     KeyFile = couch_config:get("ssl", "key_file", nil),
-    Options = case CertFile /= nil andalso KeyFile /= nil of
+    Options = case CertFile /= nil of
         true ->
-            SslOpts = [{certfile, CertFile}, {keyfile, KeyFile}],
+            SslOpts0 = [{certfile, CertFile}],
+
+            %% open certfile to get entries.
+            {ok, PemBin} = file:read_file(CertFile),
+            CertEntries = public_key:pem_decode(PemBin),
+
+            SslOpts = case couch_config:get("ssl", "key_file", nil) of
+                nil ->
+                    if length(CertEntries) >= 2 ->
+                            SslOpts0;
+                        true ->
+                            io:format("SSL Private Key is missing", []),
+                            throw({error, missing_keyfile})
+                    end;
+                KeyFile ->
+                    SslOpts0 ++ KeyFile
+            end,
 
             %% set password if one is needed for the cert
             SslOpts1 = case couch_config:get("ssl", "password", nil) of
@@ -51,35 +67,51 @@ start_link(https) ->
                 Password ->
                     SslOpts ++ [{password, Password}]
             end,
+
+            %% check if cacerts are already set in the pem file
+            SslOpts2 = case couch_config:get("ssl",  "cacert_file", nil) of
+                nil ->
+                    case CertEntries of
+                        [_P, _Cert| CaCerts] when CaCerts /= [] ->
+                            SslOpts1 ++ [{cacerts, CaCerts}];
+                        _ ->
+                            SslOpts1
+                    end;
+                CaCertFile ->
+                    SslOpts1 ++ [{cacertfile, CaCertFile}]
+            end,
+
             % do we verify certificates ?
             FinalSslOpts = case couch_config:get("ssl",
-                    "verify_ssl_certificates", "false") of
-                "false" -> SslOpts1;
+                                                 "verify_ssl_certificates",
+                                                 "false") of
+                "false" -> SslOpts2;
                 "true" ->
-                    case couch_config:get("ssl",
-                            "cacert_file", nil) of
-                        nil ->
+                    %% get depth
+                    Depth = list_to_integer(
+                            couch_config:get("ssl",
+                                             "ssl_certificate_max_depth",
+                                             "1")
+                    ),
+                    %% check if we need a CA.
+                    WithCA = SslOpts1 /= SslOpts1,
+                    case WithCA of
+                        false when Depth >= 1 ->
                             io:format("Verify SSL certificate "
-                                ++"enabled but file containing "
-                                ++"PEM encoded CA certificates is "
-                                ++"missing", []),
+                                    ++"enabled but file containing "
+                                    ++"PEM encoded CA certificates is "
+                                    ++"missing", []),
                             throw({error, missing_cacerts});
-                        CaCertFile ->
-                            Depth = list_to_integer(couch_config:get("ssl",
-                                    "ssl_certificate_max_depth",
-                                    "1")),
-                            FinalOpts = [
-                                {cacertfile, CaCertFile},
-                                {depth, Depth},
-                                {verify, verify_peer}],
-                            % allows custom verify fun.
-                            case couch_config:get("ssl",
-                                    "verify_fun", nil) of
-                                nil -> FinalOpts;
-                                SpecStr ->
-                                    FinalOpts
-                                    ++ [{verify_fun, make_arity_3_fun(SpecStr)}]
-                            end
+                        _ ->
+                            ok
+                    end,
+                    FinalOpts = [{depth, Depth},{verify, verify_peer}],
+                    % allows custom verify fun.
+                    case couch_config:get("ssl", "verify_fun", nil) of
+                        nil -> FinalOpts;
+                        SpecStr ->
+                            FinalOpts ++ [{verify_fun,
+                                           make_arity_3_fun(SpecStr)}]
                     end
             end,
 
