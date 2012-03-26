@@ -19,7 +19,7 @@
 -export([sum_stats/2]).
 
 -include_lib("couch/include/couch_db.hrl").
--include_lib("ibrowse/src/ibrowse.hrl").
+-include_lib("ibrowse/include/ibrowse.hrl").
 -include("couch_replicator_api_wrap.hrl").
 -include("couch_replicator.hrl").
 
