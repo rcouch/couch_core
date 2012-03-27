@@ -58,7 +58,7 @@ start_link(https) ->
                             throw({error, missing_keyfile})
                     end;
                 KeyFile ->
-                    SslOpts0 ++ KeyFile
+                    SslOpts0 ++ [{keyfile, KeyFile}]
             end,
 
             %% set password if one is needed for the cert
@@ -114,15 +114,13 @@ start_link(https) ->
                                            make_arity_3_fun(SpecStr)}]
                     end
             end,
-
-            [{port, Port},
-                {ssl, true},
-                {ssl_opts, FinalSslOpts}];
+            [{port, Port}, {ssl, true}, {ssl_opts, FinalSslOpts}];
         false ->
             io:format("SSL enabled but PEM certificates are missing.", []),
             throw({error, missing_certs})
     end,
     start_link(https, Options).
+
 start_link(Name, Options) ->
     % read config and register for configuration changes
 
