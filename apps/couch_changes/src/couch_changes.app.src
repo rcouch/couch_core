@@ -18,5 +18,5 @@
     {description, "handle _changes API"},
     {vsn, "0.1"},
     {modules, []},
-    {applications, [kernel, stdlib, crypto, couch]}
+    {applications, [kernel, stdlib, crypto, couch, couch_mrview]}
 ]}.
