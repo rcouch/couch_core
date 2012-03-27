@@ -85,7 +85,8 @@ start_link(https) ->
             FinalSslOpts = case couch_config:get("ssl",
                                                  "verify_ssl_certificates",
                                                  "false") of
-                "false" -> SslOpts2;
+                "false" ->
+                    SslOpts2 ++ [{verify, verify_none}];
                 "true" ->
                     %% get depth
                     Depth = list_to_integer(
