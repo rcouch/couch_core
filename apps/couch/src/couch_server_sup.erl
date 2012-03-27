@@ -109,7 +109,7 @@ start_server(IniFiles) ->
     io:format("~s has started. Time to relax.~n", [
             couch_util:capitalize(couch_config:get("vendor", "name", "rcouch"))
         ]),
-    Uris = [get_uri(Name, Ip) || Name <- [couch_httpd, https]],
+    Uris = [couch_util:get_uri(Name, Ip) || Name <- [couch_httpd, https]],
     [begin
         case Uri of
             undefined -> ok;
@@ -117,7 +117,7 @@ start_server(IniFiles) ->
         end
     end
     || Uri <- Uris],
-    case couch_config:get("couchdb", "uri_file", null) of 
+    case couch_config:get("couchdb", "uri_file", null) of
     null -> ok;
     UriFile ->
         Lines = [begin case Uri of
@@ -146,22 +146,3 @@ config_change("daemons", _) ->
 
 init(ChildSpecs) ->
     {ok, ChildSpecs}.
-
-get_uri(Name, Ip) ->
-    case get_port(Name) of
-        undefined ->
-            undefined;
-        Port ->
-            io_lib:format("~s://~s:~w/", [get_scheme(Name), Ip, Port])
-    end.
-
-get_scheme(couch_httpd) -> "http";
-get_scheme(https) -> "https".
-
-get_port(Name) ->
-    try
-        mochiweb_socket_server:get(Name, port)
-    catch
-        exit:{noproc, _}->
-            undefined
-    end.

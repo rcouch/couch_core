@@ -31,6 +31,7 @@
 -export([start_app_deps/1]).
 -export([capitalize/1]).
 -export([json_decode/1]).
+-export([get_uri/2, get_scheme/1, get_port/1]).
 
 -include("couch_db.hrl").
 
@@ -461,4 +462,23 @@ json_decode(D) ->
     catch
         throw:Error ->
             throw({invalid_json, Error})
+    end.
+
+get_uri(Name, Ip) ->
+    case get_port(Name) of
+        undefined ->
+            undefined;
+        Port ->
+            io_lib:format("~s://~s:~w/", [get_scheme(Name), Ip, Port])
+    end.
+
+get_scheme(couch_httpd) -> "http";
+get_scheme(https) -> "https".
+
+get_port(Name) ->
+    try
+        mochiweb_socket_server:get(Name, port)
+    catch
+        exit:{noproc, _}->
+            undefined
     end.
