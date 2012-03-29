@@ -248,7 +248,7 @@ handle_log_req(#httpd{method='GET'}=Req) ->
     ok = couch_httpd:verify_is_server_admin(Req),
     Bytes = list_to_integer(couch_httpd:qs_value(Req, "bytes", "1000")),
     Offset = list_to_integer(couch_httpd:qs_value(Req, "offset", "0")),
-    Chunk = couch_log:read(Bytes, Offset),
+    Chunk = read_log(Bytes, Offset),
     {ok, Resp} = start_chunked_response(Req, 200, [
         % send a plaintext response
         {"Content-Type", "text/plain; charset=utf-8"},
@@ -275,3 +275,27 @@ handle_log_req(#httpd{method='POST'}=Req) ->
     end;
 handle_log_req(Req) ->
     send_method_not_allowed(Req, "GET,POST").
+
+
+read_log(Bytes, Offset) ->
+    LogFileName = couch_config:get("log", "file"),
+    LogFileSize = filelib:file_size(LogFileName),
+    MaxChunkSize = list_to_integer(
+        couch_config:get("httpd", "log_max_chunk_size", "1000000")),
+    case Bytes > MaxChunkSize of
+    true ->
+        throw({bad_request, "'bytes' cannot exceed " ++
+            integer_to_list(MaxChunkSize)});
+    false ->
+        ok
+    end,
+
+    {ok, Fd} = file:open(LogFileName, [read]),
+    Start = lists:max([LogFileSize - Bytes - Offset, 0]),
+
+    % TODO: truncate chopped first line
+    % TODO: make streaming
+
+    {ok, Chunk} = file:pread(Fd, Start, Bytes),
+    ok = file:close(Fd),
+    Chunk.

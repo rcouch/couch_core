@@ -36,21 +36,11 @@
 
 -define(DEFAULT_ATTACHMENT_CONTENT_TYPE, <<"application/octet-stream">>).
 
--define(LOG_DEBUG(Format, Args),
-    case couch_log:debug_on() of
-        true ->
-            couch_log:debug(Format, Args);
-        false -> ok
-    end).
+-define(LOG_DEBUG(Format, Args), lager:debug(Format, Args)).
 
--define(LOG_INFO(Format, Args),
-    case couch_log:info_on() of
-        true ->
-            couch_log:info(Format, Args);
-        false -> ok
-    end).
+-define(LOG_INFO(Format, Args), lager:info(Format, Args)).
 
--define(LOG_ERROR(Format, Args), couch_log:error(Format, Args)).
+-define(LOG_ERROR(Format, Args), lager:error(Format, Args)).
 
 % Tree::term() is really a tree(), but we don't want to require R13B04 yet
 -type branch() :: {Key::term(), Value::term(), Tree::term()}.

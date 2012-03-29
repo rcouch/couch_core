@@ -19,6 +19,6 @@
     ]},
     {mod, {couch_app, []}},
 
-    {applications, [kernel, stdlib, crypto, sasl,
+    {applications, [kernel, stdlib, crypto, lager, sasl,
         public_key, ssl, inets, oauth, ibrowse, mochiweb, os_mon]}
 ]}.
