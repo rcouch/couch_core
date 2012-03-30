@@ -10,20 +10,18 @@
 % License for the specific language governing permissions and limitations under
 % the License.
 
--module(couch_replicator_app).
+-module(couch_httpd_app).
 
 -behaviour(application).
 
-%% Application callbacks
+-include_lib("couch/include/couch_db.hrl").
+
 -export([start/2, stop/1]).
 
-%% ===================================================================
-%% Application callbacks
-%% ===================================================================
+start(_Type, _Args) ->
+    couch_util:start_app_deps(couch_httpd),
+    couch_httpd_sup:start_link().
 
-start(_StartType, _StartArgs) ->
-    couch_util:start_app_deps(couch_replicator),
-    couch_replicator_sup:start_link().
 
-stop(_State) ->
+stop(_) ->
     ok.

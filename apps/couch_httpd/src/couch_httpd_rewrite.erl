@@ -17,7 +17,8 @@
 
 -module(couch_httpd_rewrite).
 -export([handle_rewrite_req/3]).
--include("couch_db.hrl").
+-include_lib("couch/include/couch_db.hrl").
+-include_lib("couch_httpd/include/couch_httpd.hrl").
 
 -define(SEPARATOR, $\/).
 -define(MATCH_ALL, {bind, <<"*">>}).
@@ -135,7 +136,7 @@ handle_rewrite_req(#httpd{
             Method1 = couch_util:to_binary(Method),
 
             %% get raw path by matching url to a rule.
-            RawPath = case try_bind_path(DispatchList, Method1, 
+            RawPath = case try_bind_path(DispatchList, Method1,
                     PathParts, QueryList) of
                 no_dispatch_path ->
                     throw(not_found);
@@ -148,10 +149,10 @@ handle_rewrite_req(#httpd{
                     Path = binary_to_list(
                         iolist_to_binary([
                                 string:join(Parts, [?SEPARATOR]),
-                                [["?", mochiweb_util:urlencode(Bindings1)] 
+                                [["?", mochiweb_util:urlencode(Bindings1)]
                                     || Bindings1 =/= [] ]
                             ])),
-                    
+
                     % if path is relative detect it and rewrite path
                     case mochiweb_util:safe_relative_path(Path) of
                         undefined ->
@@ -269,7 +270,7 @@ replace_var(Value, Bindings, Formats) when is_list(Value) ->
             end, [], Value));
 replace_var(Value, _Bindings, _Formats) ->
     Value.
-                    
+
 maybe_json(Key, Value) ->
     case lists:member(Key, [<<"key">>, <<"startkey">>, <<"start_key">>,
                 <<"endkey">>, <<"end_key">>, <<"keys">>]) of
@@ -312,7 +313,7 @@ format(<<"bool">>, Value) when is_list(Value) ->
         _ -> Value
     end;
 format(_Format, Value) ->
-   Value. 
+   Value.
 
 %% doc: build new patch from bindings. bindings are query args
 %% (+ dynamic query rewritten if needed) and bindings found in
@@ -328,7 +329,7 @@ make_new_path([?MATCH_ALL|_Rest], _Bindings, Remaining, Acc) ->
 make_new_path([{bind, P}|Rest], Bindings, Remaining, Acc) ->
     P2 = case couch_util:get_value({bind, P}, Bindings) of
         undefined -> << "undefined">>;
-        P1 -> 
+        P1 ->
             iolist_to_binary(P1)
     end,
     make_new_path(Rest, Bindings, Remaining, [P2|Acc]);
@@ -445,15 +446,15 @@ path_to_list([P|R], Acc, DotDotCount) ->
 
 maybe_encode_bindings([]) ->
     [];
-maybe_encode_bindings(Props) -> 
-    lists:foldl(fun 
+maybe_encode_bindings(Props) ->
+    lists:foldl(fun
             ({{bind, <<"*">>}, _V}, Acc) ->
                 Acc;
             ({{bind, K}, V}, Acc) ->
                 V1 = iolist_to_binary(maybe_json(K, V)),
                 [{K, V1}|Acc]
         end, [], Props).
-                
+
 decode_query_value({K,V}) ->
     case lists:member(K, ["key", "startkey", "start_key",
                 "endkey", "end_key", "keys"]) of

@@ -12,6 +12,7 @@
 
 -module(couch_changes).
 -include_lib("couch/include/couch_db.hrl").
+-include_lib("couch_httpd/include/couch_httpd.hrl").
 
 -export([handle_changes/3]).
 
@@ -141,9 +142,7 @@ os_filter_fun(FilterName, Style, Req, Db) ->
             Docs = [Doc || {ok, Doc} <- [
                     couch_db:open_doc(Db2, DocInfo2, [deleted, conflicts])
                         || DocInfo2 <- DocInfos]],
-            {ok, Passes} = couch_query_servers:filter_docs(
-                Req, Db2, DDoc, FName, Docs
-            ),
+            {ok, Passes} = filter_docs(Req, Db2, DDoc, FName, Docs),
             [{[{<<"rev">>, couch_doc:rev_to_str({RevPos,RevId})}]}
                 || {Pass, #doc{revs={RevPos,[RevId|_]}}}
                 <- lists:zip(Passes, Docs), Pass == true]
@@ -567,3 +566,16 @@ maybe_heartbeat(Timeout, TimeoutFun, Acc) ->
             {ok, Acc}
         end
     end.
+
+
+filter_docs(Req, Db, DDoc, FName, Docs) ->
+    JsonReq = case Req of
+    {json_req, JsonObj} ->
+        JsonObj;
+    #httpd{} = HttpReq ->
+        couch_httpd_external:json_req_obj(HttpReq, Db)
+    end,
+    JsonDocs = [couch_doc:to_json_obj(Doc, [revs]) || Doc <- Docs],
+    [true, Passes] = couch_query_servers:ddoc_prompt(DDoc, [<<"filters">>, FName],
+        [JsonDocs, JsonReq]),
+    {ok, Passes}.

@@ -1,0 +1,13 @@
+{application, couch_httpd, [
+    {description, "refuge couchdb HTTP api"},
+    {vsn, "1.3.0"},
+    {registered, [
+        couch_httpd,
+        couch_httpd_sup
+    ]},
+
+    {mod, {couch_httpd_app, []}},
+
+    {applications, [kernel, stdlib, crypto, sasl,
+        public_key, ssl, inets, oauth, ibrowse, mochiweb, couch]}
+]}.
