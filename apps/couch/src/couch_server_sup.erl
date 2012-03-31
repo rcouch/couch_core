@@ -105,36 +105,6 @@ start_server(IniFiles) ->
 
     unlink(ConfigPid),
 
-    Ip = couch_config:get("httpd", "bind_address"),
-    io:format("~s has started. Time to relax.~n", [
-            couch_util:capitalize(couch_config:get("vendor", "name", "rcouch"))
-        ]),
-    Uris = [couch_util:get_uri(Name, Ip) || Name <- [couch_httpd, https]],
-    [begin
-        case Uri of
-            undefined -> ok;
-            Uri -> ?LOG_INFO("couch_core has started on ~s", [Uri])
-        end
-    end
-    || Uri <- Uris],
-    case couch_config:get("couchdb", "uri_file", null) of
-    null -> ok;
-    UriFile ->
-        Lines = [begin case Uri of
-            undefined -> [];
-            Uri -> io_lib:format("~s~n", [Uri])
-            end end || Uri <- Uris],
-        case file:write_file(UriFile, Lines) of
-        ok -> ok;
-        {error, eacces} ->
-            ?LOG_ERROR("Permission error when writing to URI file ~s", [UriFile]),
-            throw({file_permission_error, UriFile});
-        Error2 ->
-            ?LOG_ERROR("Failed to write to URI file ~s: ~p~n", [UriFile, Error2]),
-            throw(Error2)
-        end
-    end,
-
     {ok, Pid}.
 
 stop() ->

@@ -187,6 +187,10 @@ start_link(Name, Options) ->
             throw({error, Reason})
     end,
 
+    Ip = couch_config:get("httpd", "bind_address"),
+    Uri = couch_util:get_uri(Name, Ip),
+    ?LOG_INFO("HTTP API started on ~s~n", [Uri]),
+
     ok = couch_config:register(fun ?MODULE:config_change/2, Pid),
     {ok, Pid}.
 
@@ -213,6 +217,8 @@ config_change("httpd_db_handlers", _) ->
     ?MODULE:stop();
 config_change("ssl", _) ->
     ?MODULE:stop().
+
+
 
 set_auth_handlers() ->
     AuthenticationSrcs = make_fun_spec_strs(
