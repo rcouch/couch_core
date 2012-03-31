@@ -51,7 +51,6 @@ couchTests.config = function(debug) {
   }
 
   T(config.couchdb.database_dir);
-  T(config.daemons.httpd);
   T(config.httpd_global_handlers._config);
   T(config.log.level);
   T(config.query_servers.javascript);
