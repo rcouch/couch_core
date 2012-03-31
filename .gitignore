@@ -33,7 +33,7 @@ apps/couch_index/ebin
 apps/couch_replicator/ebin
 apps/couch_mrview/ebin
 apps/couch_changes/ebin
-
+apps/couch_httpd/ebin
 # other
 deps
 ebin/*.beam

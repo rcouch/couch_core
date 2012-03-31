@@ -30,11 +30,12 @@ start_link() ->
 init([]) ->
     HTTP = ?CHILD(couch_httpd),
     VHost = ?CHILD(couch_httpd_vhost),
+    AuthCache = ?CHILD(couch_auth_cache),
     HTTPs = case couch_config:get("ssl", "enable", "false") of
         "true" ->
             [?CHILD(https, couch_httpd, [https])];
         _ ->
             []
     end,
-    {ok, {{one_for_one, 10, 3600}, [HTTP, VHost] ++ HTTPs}}.
+    {ok, {{one_for_one, 10, 3600}, [HTTP, VHost, AuthCache] ++ HTTPs}}.
 
