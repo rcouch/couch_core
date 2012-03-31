@@ -32,6 +32,7 @@
 -export([send_json/2,send_json/3,send_json/4,last_chunk/1,parse_multipart_request/3]).
 -export([accepted_encodings/1,handle_request_int/5,validate_referer/1,validate_ctype/2]).
 -export([vendor_id/0]).
+-export([display_uris/1]).
 
 start_link() ->
     start_link(http).
@@ -55,7 +56,7 @@ start_link(https) ->
                     if length(CertEntries) >= 2 ->
                             SslOpts0;
                         true ->
-                            io:format("SSL Private Key is missing", []),
+                            ?LOG_ERROR("SSL Private Key is missing", []),
                             throw({error, missing_keyfile})
                     end;
                 KeyFile ->
@@ -99,7 +100,7 @@ start_link(https) ->
                     WithCA = SslOpts1 /= SslOpts1,
                     case WithCA of
                         false when Depth >= 1 ->
-                            io:format("Verify SSL certificate "
+                            ?LOG_ERROR("Verify SSL certificate "
                                     ++"enabled but file containing "
                                     ++"PEM encoded CA certificates is "
                                     ++"missing", []),
@@ -118,7 +119,7 @@ start_link(https) ->
             end,
             [{port, Port}, {ssl, true}, {ssl_opts, FinalSslOpts}];
         false ->
-            io:format("SSL enabled but PEM certificates are missing.", []),
+            ?LOG_ERROR("SSL enabled but PEM certificates are missing.", []),
             throw({error, missing_certs})
     end,
     start_link(https, Options).
@@ -219,6 +220,16 @@ config_change("ssl", _) ->
     ?MODULE:stop().
 
 
+display_uris([]) ->
+    Ip = couch_config:get("httpd", "bind_address"),
+    Uris = [couch_util:get_uri(Name, Ip) || Name <- [couch_httpd, https]],
+    [begin
+        case Uri of
+            undefined -> ok;
+            Uri -> io:format("~s~n", [Uri])
+        end
+    end
+    || Uri <- Uris].
 
 set_auth_handlers() ->
     AuthenticationSrcs = make_fun_spec_strs(
@@ -1134,5 +1145,3 @@ partial_find(B, D, N, K) ->
         _ ->
             partial_find(B, D, 1 + N, K - 1)
     end.
-
-
