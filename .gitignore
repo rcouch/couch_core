@@ -37,3 +37,4 @@ apps/couch_httpd/ebin
 # other
 deps
 ebin/*.beam
+test/couch_dev

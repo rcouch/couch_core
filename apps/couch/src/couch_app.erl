@@ -30,6 +30,7 @@ get_ini_files() ->
     Etc = couch:get_app_env(config_dir,
         filename:join([code:root_dir(), "./etc"])),
 
+
     Default = [filename:join(Etc,"default.ini"),
         filename:join(Etc,"local.ini")],
     case init:get_argument(couch_ini) of

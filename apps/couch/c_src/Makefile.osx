@@ -6,11 +6,13 @@ GCC=gcc
 CXX=g++
 
 JS_HEADERS= \
+	c_src/couch_js/http.h \
 	c_src/couch_js/utf8.h \
 	c_src/couch_js/help.h \
 	c_src/couch_js/util.h
 
 JS_OBJS= \
+	c_src/obj/http.o \
 	c_src/obj/main.o \
 	c_src/obj/utf8.o \
 	c_src/obj/util.o
@@ -24,7 +26,7 @@ JS_FILE_COMPONENTS= share/server/json2.js \
 					share/server/util.js \
 					share/server/validate.js \
 					share/server/views.js
-JS_FILE_COMPONENTS_LAST = share/server/loop.js    
+JS_FILE_COMPONENTS_LAST = share/server/loop.js
 COFFEE_FILE= share/server/main-coffee.js
 COFFEE_FILE_COMPONENTS_LAST = share/server/coffee-script.js \
 							  share/server/loop.js
@@ -41,7 +43,13 @@ ifeq ($(USE_STATIC_ICU), 1)
 			 $(STATICLIBS)/icu/lib/libicudata.a
 endif
 
-all: compile 
+ifeq ($(WITHOUT_CURL), 1)
+	JS_CFLAG=$(JS_CFLAGS) -DWITHOUT_CURL
+else
+	JS_LIBS+=-lcurl
+endif
+
+all: compile
 	@install couchspawnkillable/couchspawnkillable.sh priv/couchspawnkillable
 
 compile: couchjs js collate

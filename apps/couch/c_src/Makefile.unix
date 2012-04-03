@@ -9,11 +9,13 @@ GCC?=gcc
 CXX?=g++
 
 JS_HEADERS= \
+	c_src/couch_js/http.h \
 	c_src/couch_js/utf8.h \
 	c_src/couch_js/help.h \
 	c_src/couch_js/util.h
 
 JS_OBJS= \
+	c_src/obj/http.o \
 	c_src/obj/main.o \
 	c_src/obj/utf8.o \
 	c_src/obj/util.o
@@ -48,6 +50,12 @@ ifeq ($(uname_S),FreeBSD)
 	JS_LIBS=$(STATICLIBS)/js/lib/libjs_static.a \
 			$(STATICLIBS)/nsprpub/lib/libnspr4.a \
 			-lstdc++ -lpthread
+endif
+
+ifeq ($(WITHOUT_CURL), 1)
+	JS_CFLAG=$(JS_CFLAGS) -DWITHOUT_CURL
+else
+	JS_LIBS+=-lcurl
 endif
 
 all: compile

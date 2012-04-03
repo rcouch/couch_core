@@ -1,0 +1,89 @@
+#!/bin/sh
+# -*- tab-width:4;indent-tabs-mode:nil -*-
+# ex: ts=4 sw=4 etSRC_DIR=/Users/benoitc/refuge/couchdb
+
+RUNNER_SCRIPT_DIR={{runner_script_dir}}
+RUNNER_SCRIPT=${0##*/}
+
+
+RUNNER_BASE_DIR={{runner_base_dir}}
+RUNNER_ETC_DIR={{runner_etc_dir}}
+RUNNER_LOG_DIR={{runner_log_dir}}
+
+# Make sure CWD is set to runner base dir
+cd $RUNNER_BASE_DIR
+
+# Parse out release and erts info
+START_ERL=`cat $RUNNER_BASE_DIR/releases/start_erl.data`
+ERTS_VSN=${START_ERL% *}
+APP_VSN=${START_ERL#* }
+
+# Add ERTS bin dir to our path
+ERTS_PATH=$RUNNER_BASE_DIR/erts-$ERTS_VSN/bin
+SCRIPT_DIR=$RUNNER_BASE_DIR/share/www/script
+JS_TEST_DIR=$RUNNER_BASE_DIR/test/javascript
+COUCH_URI=$RUNNER_BASE_DIR/test/couch.uri
+
+COUCHJS=$RUNNER_BASE_DIR/bin/couchjs
+COUCHBIN=$RUNNER_BASE_DIR/bin/couch_dev
+NODETOOL="$ERTS_PATH/escript $ERTS_PATH/nodetool $NAME_ARG $COOKIE_ARG"
+
+
+if [ "$#" -eq 0 ];
+then
+    TEST_SRC="$SCRIPT_DIR/test/*.js"
+else
+    TEST_SRC="$1"
+    if [ ! -f $TEST_SRC ]; then
+        TEST_SRC="$SCRIPT_DIR/test/$1"
+        if [ ! -f $TEST_SRC ]; then
+            TEST_SRC="$SCRIPT_DIR/test/$1.js"
+            if [ ! -f $TEST_SRC ]; then
+                echo "file $1 does not exist"
+                exit 1
+            fi
+        fi
+    fi
+fi
+
+
+STARTED=`$NODETOOL ping`
+
+# stop CouchDB on exit from various signals
+abort() {
+	trap - 0
+    $COUCHBIN stop
+	exit 2
+}
+
+# start CouchDB
+if [ "$STARTED" != "pong" ]; then
+	trap 'abort' 0 1 2 3 4 6 8 15
+    $COUCHBIN start
+	sleep 1 # give it a sec
+fi
+
+# start the tests
+echo "http://127.0.0.1:{{couchdb_port}}" > $COUCH_URI
+
+$COUCHJS -H -u $COUCH_URI \
+	$SCRIPT_DIR/json2.js \
+	$SCRIPT_DIR/sha1.js \
+	$SCRIPT_DIR/oauth.js \
+	$SCRIPT_DIR/couch.js \
+	$SCRIPT_DIR/couch_test_runner.js \
+	$SCRIPT_DIR/couch_tests.js \
+	$TEST_SRC \
+	$JS_TEST_DIR/couch_http.js \
+	$JS_TEST_DIR/cli_runner.js
+RESULT=$?
+
+STARTED=`$NODETOOL ping`
+
+if [ "$STARTED" = "pong" ]; then
+	# stop CouchDB
+	$COUCHBIN stop
+	trap - 0
+fi
+
+exit $RESULT
