@@ -98,7 +98,7 @@ var DDoc = (function() {
                        " on design doc " + ddocId]);
               }
               if (typeof fun != "function") {
-                fun = Couch.compileFunction(fun, ddoc);
+                fun = Couch.compileFunction(fun, ddoc, funPath.join('.'));
                 // cache the compiled fun on the ddoc
                 point[funPath[i]] = fun;
               };
@@ -140,6 +140,8 @@ var Loop = function() {
     } else if (e.error && e.reason) {
       // compatibility with old error format
       respond(["error", e.error, e.reason]);
+    } else if (e.name) {
+      respond(["error", e.name, e]);
     } else {
       respond(["error","unnamed_error",e.toSource()]);
     }
