@@ -1,5 +1,5 @@
-couch_core
-----------
+couch_core [![Build Status](https://secure.travis-ci.org/refuge/couchÂ_core.png)](http://travis-ci.org/refuge/couch_core)
+=========================================================================================================================
 
 couch_core is a static distribution of couchdb using rebar. It aims to be
 embed in your applications or be part of custom distribution of couchdb.
