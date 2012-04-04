@@ -44,7 +44,7 @@ ifeq ($(USE_STATIC_ICU), 1)
 endif
 
 ifeq ($(WITHOUT_CURL), 1)
-	JS_CFLAG=$(JS_CFLAGS) -DWITHOUT_CURL
+	JS_CFLAGS+=-DWITHOUT_CURL=1
 else
 	JS_LIBS+=-lcurl
 endif
