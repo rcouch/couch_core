@@ -7,7 +7,7 @@ reltest: deps reltestclean
 	rebar -C rebar_dev.config compile generate
 
 deps:
-	rebar get-deps
+	rebar -C rebar_dev.config get-deps
 
 clean:
 	rebar clean
