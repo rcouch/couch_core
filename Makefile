@@ -14,3 +14,5 @@ clean:
 
 reltestclean:
 	rm -rf test/couch_dev
+
+.PHONY: deps
