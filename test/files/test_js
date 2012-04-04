@@ -64,7 +64,7 @@ if [ "$STARTED" != "pong" ]; then
 fi
 
 # start the tests
-echo "http://127.0.0.1:{{couchdb_port}}" > $COUCH_URI
+echo "http://127.0.0.1:{{couchdb_port}}/" > $COUCH_URI
 
 $COUCHJS -H -u $COUCH_URI \
 	$SCRIPT_DIR/json2.js \
