@@ -1,6 +1,6 @@
 all: check
 
-check: reltest
+check: clean reltest
 	./test/couch_dev/bin/test_js
 
 reltest: deps reltestclean
