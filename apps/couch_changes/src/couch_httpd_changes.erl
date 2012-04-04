@@ -77,7 +77,7 @@ do_changes_req(Req, Db) ->
     end.
 
 
-do_changes_req(Db, Req, #changes_args{feed=normal}, ChangesFun, MakeCallback) ->
+do_changes_req(Db, Req, #changes_args{feed="normal"}, ChangesFun, MakeCallback) ->
     {ok, Info} = couch_db:get_db_info(Db),
     CurrentEtag = couch_httpd:make_etag(Info),
     couch_httpd:etag_respond(Req, CurrentEtag, fun() ->
