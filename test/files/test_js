@@ -49,18 +49,13 @@ fi
 
 STARTED=`$NODETOOL ping`
 
-# stop CouchDB on exit from various signals
-abort() {
-	trap - 0
-    $COUCHBIN stop
-	exit 2
-}
-
 # start CouchDB
 if [ "$STARTED" != "pong" ]; then
-	trap 'abort' 0 1 2 3 4 6 8 15
     $COUCHBIN start
 	sleep 1 # give it a sec
+else
+     $COUCHBIN reboot
+     sleep 1
 fi
 
 # start the tests

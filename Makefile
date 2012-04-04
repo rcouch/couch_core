@@ -1,7 +1,7 @@
 all: check
 
 check: clean reltest
-	./test/couch_dev/bin/test_js
+	@./test/couch_dev/bin/test_js
 
 reltest: deps reltestclean
 	rebar -C rebar_dev.config compile generate
