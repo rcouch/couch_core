@@ -13,6 +13,20 @@ RUNNER_LOG_DIR={{runner_log_dir}}
 # Make sure CWD is set to runner base dir
 cd $RUNNER_BASE_DIR
 
+# Extract the target node name from node.args
+NAME_ARG=`egrep '^-s?name' $RUNNER_ETC_DIR/vm.args`
+if [ -z "$NAME_ARG" ]; then
+    echo "vm.args needs to have either -name or -sname parameter."
+    exit 1
+fi
+
+# Extract the target cookie
+COOKIE_ARG=`grep '^-setcookie' $RUNNER_ETC_DIR/vm.args`
+if [ -z "$COOKIE_ARG" ]; then
+    echo "vm.args needs to have a -setcookie parameter."
+    exit 1
+fi
+
 # Parse out release and erts info
 START_ERL=`cat $RUNNER_BASE_DIR/releases/start_erl.data`
 ERTS_VSN=${START_ERL% *}
@@ -48,15 +62,14 @@ fi
 
 
 STARTED=`$NODETOOL ping`
-
-# start CouchDB
-if [ "$STARTED" != "pong" ]; then
-    $COUCHBIN start
-	sleep 1 # give it a sec
-else
-     $COUCHBIN reboot
-     sleep 1
+# stop couch if needed
+if [ "$STARTED" = "pong" ]; then
+    $COUCHBIN stop    
 fi
+
+# start a new couch instance
+$COUCHBIN start
+sleep 1 # give it a sec
 
 # start the tests
 echo "http://127.0.0.1:{{couchdb_port}}/" > $COUCH_URI
