@@ -39,6 +39,7 @@ main(_) ->
 
 test() ->
     couch_server_sup:start_link(test_util:config_files()),
+    couch_index_sup:start_link(),
     couch_config:set("couchdb", "file_compression", "none", false),
 
     create_database(),

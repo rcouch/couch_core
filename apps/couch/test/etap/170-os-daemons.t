@@ -26,11 +26,11 @@
 
 config_files() ->
     lists:map(fun test_util:build_file/1, [
-        "etc/couchdb/default_dev.ini"
+        "etc/default.ini"
     ]).
 
 daemon_cmd() ->
-    test_util:source_file("test/etap/170-os-daemons.es").
+    test_util:source_file("test/etap/couch/170-os-daemons.es").
 
 main(_) ->
     test_util:init_code_path(),
@@ -52,7 +52,7 @@ test() ->
     etap:diag("Daemons boot after configuration added."),
     couch_config:set("os_daemons", "foo", daemon_cmd(), false),
     timer:sleep(1000),
-    
+
     {ok, [D1]} = couch_os_daemons:info([table]),
     check_daemon(D1, "foo"),
 
@@ -64,11 +64,11 @@ test() ->
     etap:diag("Daemons stop after configuration removed."),
     couch_config:delete("os_daemons", "foo", false),
     timer:sleep(500),
-    
+
     {ok, []} = couch_os_daemons:info([table]),
     {ok, Tab2} = couch_os_daemons:info(),
     etap:is(ets:tab2list(Tab2), [], "As table returns empty table."),
-    
+
     etap:diag("Adding multiple daemons causes both to boot."),
     couch_config:set("os_daemons", "bar", daemon_cmd(), false),
     couch_config:set("os_daemons", "baz", daemon_cmd(), false),
@@ -82,19 +82,19 @@ test() ->
     lists:foreach(fun(D) ->
         check_daemon(D)
     end, ets:tab2list(Tab3)),
-    
+
     etap:diag("Removing one daemon leaves the other alive."),
     couch_config:delete("os_daemons", "bar", false),
     timer:sleep(500),
-    
+
     {ok, [D2]} = couch_os_daemons:info([table]),
     check_daemon(D2, "baz"),
-    
+
     % Check table version
     {ok, Tab4} = couch_os_daemons:info(),
     [T4] = ets:tab2list(Tab4),
     check_daemon(T4, "baz"),
-    
+
     ok.
 
 check_daemon(D) ->

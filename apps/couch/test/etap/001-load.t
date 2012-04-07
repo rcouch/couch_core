@@ -1,5 +1,6 @@
 #!/usr/bin/env escript
 %% -*- erlang -*-
+%%! -pa ../ -pa .
 
 % Licensed under the Apache License, Version 2.0 (the "License"); you may not
 % use this file except in compliance with the License. You may obtain a copy of
@@ -18,8 +19,6 @@
 main(_) ->
     test_util:init_code_path(),
     Modules = [
-        couch_auth_cache,
-        couch_changes,
         couch_compress,
         couch_config,
         couch_config_writer,
@@ -34,14 +33,7 @@ main(_) ->
         couch_external_manager,
         couch_external_server,
         couch_file,
-        couch_httpd,
-        couch_httpd_db,
-        couch_httpd_external,
-        couch_httpd_misc_handlers,
-        couch_httpd_rewrite,
-        couch_httpd_stats_handlers,
         couch_key_tree,
-        couch_log,
         couch_os_process,
         couch_query_servers,
         couch_ref_counter,
@@ -59,7 +51,7 @@ main(_) ->
     etap:plan(length(Modules)),
     lists:foreach(
         fun(Module) ->
-            etap_can:loaded_ok(
+            etap:loaded_ok(
                 Module,
                 lists:concat(["Loaded: ", Module])
             )

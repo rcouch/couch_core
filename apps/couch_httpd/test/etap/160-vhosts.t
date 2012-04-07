@@ -42,6 +42,8 @@ main(_) ->
 
 test() ->
     couch_server_sup:start_link(test_util:config_files()),
+    couch_httpd_sup:start_link(),
+
     ibrowse:start(),
     crypto:start(),
 

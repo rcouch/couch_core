@@ -25,21 +25,21 @@
 }).
 
 config_files() ->
-    lists:map(fun test_util:build_file/1, [
-        "etc/couchdb/default_dev.ini"
-    ]).
+    [
+        test_util:build_file("etc/default.ini")
+    ].
 
 bad_perms() ->
-    test_util:source_file("test/etap/172-os-daemon-errors.1.sh").
+    test_util:source_file("test/etap/couch/172-os-daemon-errors.1.sh").
 
 die_on_boot() ->
-    test_util:source_file("test/etap/172-os-daemon-errors.2.sh").
+    test_util:source_file("test/etap/couch/172-os-daemon-errors.2.sh").
 
 die_quickly() ->
-    test_util:source_file("test/etap/172-os-daemon-errors.3.sh").
+    test_util:source_file("test/etap/couch/172-os-daemon-errors.3.sh").
 
 can_reboot() ->
-    test_util:source_file("test/etap/172-os-daemon-errors.4.sh").
+    test_util:source_file("test/etap/couch/172-os-daemon-errors.4.sh").
 
 main(_) ->
     test_util:init_code_path(),
@@ -66,10 +66,10 @@ test() ->
 
     etap:diag("Daemon dies quickly after boot."),
     test_halts("baz", die_quickly(), 4000),
-    
+
     etap:diag("Daemon dies, but not quickly enough to be halted."),
     test_runs("bam", can_reboot()),
-    
+
     ok.
 
 test_halts(Name, Cmd, Time) ->
@@ -85,14 +85,14 @@ test_runs(Name, Cmd) ->
     timer:sleep(1000),
     {ok, [D1]} = couch_os_daemons:info([table]),
     check_daemon(D1, Name, Cmd, 0),
-    
+
     % Should reboot every two seconds. We're at 1s, so wait
     % utnil 3s to be in the middle of the next invocation's
     % life span.
     timer:sleep(2000),
     {ok, [D2]} = couch_os_daemons:info([table]),
     check_daemon(D2, Name, Cmd, 1),
-    
+
     % If the kill command changed, that means we rebooted the process.
     etap:isnt(D1#daemon.kill, D2#daemon.kill, "Kill command changed.").
 

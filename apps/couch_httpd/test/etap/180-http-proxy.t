@@ -67,8 +67,12 @@ check_request(Name, Req, Remote, Local) ->
     Resp.
 
 test() ->
-    ExtraConfig = [test_util:source_file("test/etap/180-http-proxy.ini")],
+    ExtraConfig = [
+        test_util:source_file("test/etap/couch_httpd/180-http-proxy.ini")
+    ],
     couch_server_sup:start_link(test_util:config_files() ++ ExtraConfig),
+    couch_httpd_sup:start_link(),
+
     ibrowse:start(),
     crypto:start(),
 
@@ -100,7 +104,7 @@ test() ->
     test_passes_chunked_body_back(),
 
     test_connect_error(),
-    
+
     ok.
 
 test_basic() ->
@@ -203,7 +207,7 @@ do_rewrite_tests(Tests) ->
     lists:foreach(fun({Header, Location, Url}) ->
         do_rewrite_test(Header, Location, Url)
     end, Tests).
-    
+
 do_rewrite_test(Header, Location, Url) ->
     Remote = fun(Req) ->
         "/rewrite_test" = Req:get(path),
@@ -308,7 +312,7 @@ test_passes_chunked_body_back() ->
         "Received an ibrowse request id."
     ),
     {_, ReqId} = Resp,
-    
+
     % Grab headers from response
     receive
         {ibrowse_async_headers, ReqId, "200", Headers} ->
@@ -321,7 +325,7 @@ test_passes_chunked_body_back() ->
     after 1000 ->
         throw({error, timeout})
     end,
-    
+
     % Check body received
     % TODO: When we upgrade to ibrowse >= 2.0.0 this check needs to
     %       check that the chunks returned are what we sent from the

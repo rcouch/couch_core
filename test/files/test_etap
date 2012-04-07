@@ -1,0 +1,42 @@
+#!/bin/sh
+# -*- tab-width:4;indent-tabs-mode:nil -*-
+# ex: ts=4 sw=4 et
+
+RUNNER_SCRIPT_DIR={{runner_script_dir}}
+RUNNER_SCRIPT=${0##*/}
+
+RUNNER_BASE_DIR={{runner_base_dir}}
+RUNNER_ETC_DIR={{runner_etc_dir}}
+RUNNER_LOG_DIR={{runner_log_dir}}
+
+
+# Make sure CWD is set to runner base dir
+cd $RUNNER_BASE_DIR
+
+# Make sure log directory exists
+mkdir -p $RUNNER_LOG_DIR
+
+export ROOTDIR=$RUNNER_BASE_DIR
+export ETAP_ROOTDIR=$RUNNER_BASE_DIR
+export ERL_FLAGS="-pa $RUNNER_BASE_DIR/test/etap"
+export ERL_LIBS="$RUNNER_BASE_DIR/lib/:$ERL_LIBS"
+
+if [ "$#" -eq 0 ];
+then
+    for APP in test/etap/*; do
+        env ERL_FLAGS="-pa $RUNNER_BASE_DIR/test/etap" \
+            ETAP_ROOTDIR=$RUNNER_BASE_DIR prove $APP/*.t
+    done
+else
+    TEST_SRC=$1
+    if [ ! -f $TEST_SRC ]; then
+        TEST_SRC="$RUNNER_BASE_DIR/$1"
+        if [ ! -f $TEST_SRC ]; the
+        then
+            echo "file $1 does not exist"
+            exit 1
+        fi
+    fi
+    env ERL_FLAGS="-pa $RUNNER_BASE_DIR/test/etap" \
+        ETAP_ROOTDIR=$RUNNER_BASE_DIR prove -v $TEST_SRC
+fi

@@ -40,6 +40,9 @@ main(_) ->
 %%
 test() ->
     couch_server_sup:start_link(test_util:config_files()),
+    couch_index_sup:start_link(),
+    couch_httpd_sup:start_link(),
+
     timer:sleep(1000),
     delete_db(),
     create_db(),
@@ -63,6 +66,7 @@ test() ->
 
     delete_db(),
     couch_server_sup:stop(),
+    couch_httpd:stop(),
     ok.
 
 admin_user_ctx() ->
@@ -170,7 +174,7 @@ query_view_after_restore_backup() ->
     {ok, Code, _Headers, Body} = test_util:request(
         db_url() ++ "/_design/foo/_view/bar", [], get),
     etap:is(Code, 200, "Got view response after restoring backup."),
-    ViewJson = jiffy::decode(Body),
+    ViewJson = jiffy:decode(Body),
     Rows = couch_util:get_nested_json_value(ViewJson, [<<"rows">>]),
     HasDoc1 = has_doc("doc1", Rows),
     HasDoc2 = has_doc("doc2", Rows),

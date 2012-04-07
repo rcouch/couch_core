@@ -1,6 +1,5 @@
 #!/usr/bin/env escript
 %% -*- erlang -*-
-%%! -pa ./src/couchdb -pa ./src/mochiweb -sasl errlog_type false -noshell
 
 % Licensed under the Apache License, Version 2.0 (the "License"); you may not
 % use this file except in compliance with the License. You may obtain a copy of
@@ -115,16 +114,16 @@ test_to_json_success() ->
         {
             #doc{atts=[
                 #att{
-                    name = <<"big.xml">>, 
-                    type = <<"xml/sucks">>, 
+                    name = <<"big.xml">>,
+                    type = <<"xml/sucks">>,
                     data = fun() -> ok end,
                     revpos = 1,
                     att_len = 400,
                     disk_len = 400
                 },
                 #att{
-                    name = <<"fast.json">>, 
-                    type = <<"json/ftw">>, 
+                    name = <<"fast.json">>,
+                    type = <<"json/ftw">>,
                     data = <<"{\"so\": \"there!\"}">>,
                     revpos = 1,
                     att_len = 16,

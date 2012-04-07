@@ -41,6 +41,9 @@ main(_) ->
 test() ->
 
     {ok, _} = couch_server_sup:start_link(test_util:config_files()),
+    {ok, _} = couch_httpd_sup:start_link(),
+    couch_index_sup:start_link(),
+
     couch_server:delete(?TEST_DB, []),
     timer:sleep(1000),
 
@@ -121,6 +124,8 @@ view_cleanup() ->
 
 count_index_files() ->
     % call server to fetch the index files
-    RootDir = couch_config:get("couchdb", "index_dir"),
+    RootDir = filename:absname(filename:join(test_util:rootdir(),
+                               couch_config:get("couchdb", "index_dir"))),
+    io:format("root dir: ~p~n", [RootDir]),
     length(filelib:wildcard(RootDir ++ "/." ++
         binary_to_list(?TEST_DB) ++ "_design"++"/mrview/*")).

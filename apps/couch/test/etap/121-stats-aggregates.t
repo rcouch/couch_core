@@ -14,10 +14,10 @@
 % the License.
 
 ini_file() ->
-    test_util:source_file("test/etap/121-stats-aggregates.ini").
+    test_util:source_file("test/etap/couch/121-stats-aggregates.ini").
 
 cfg_file() ->
-    test_util:source_file("test/etap/121-stats-aggregates.cfg").
+    test_util:source_file("test/etap/couch/121-stats-aggregates.cfg").
 
 main(_) ->
     test_util:init_code_path(),
@@ -58,7 +58,7 @@ test_all_empty() ->
         "{number, '11'} is empty at start."
     ),
     ok.
-    
+
 test_get_empty() ->
     etap:is(
         couch_stats_aggregator:get_json({testing, stuff}),

@@ -83,6 +83,10 @@ main(_) ->
 
 test() ->
     couch_server_sup:start_link(test_util:config_files()),
+    couch_httpd_sup:start_link(),
+    couch_index_sup:start_link(),
+    couch_replicator_sup:start_link(),
+
     ibrowse:start(),
 
     Pairs = [
@@ -121,6 +125,7 @@ test() ->
         Pairs),
 
     couch_server_sup:stop(),
+    couch_httpd:stop(),
     ok.
 
 

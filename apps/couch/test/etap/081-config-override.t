@@ -14,13 +14,13 @@
 % the License.
 
 default_config() ->
-    test_util:build_file("etc/couchdb/default_dev.ini").
+    test_util:build_file("etc/default.ini").
 
 local_config_1() ->
-    test_util:source_file("test/etap/081-config-override.1.ini").
+    test_util:source_file("test/etap/couch/081-config-override.1.ini").
 
 local_config_2() ->
-    test_util:source_file("test/etap/081-config-override.2.ini").
+    test_util:source_file("test/etap/couch/081-config-override.2.ini").
 
 local_config_write() ->
     test_util:build_file("test/etap/temp.081").
@@ -65,8 +65,8 @@ test() ->
 
         etap:is(
             couch_config:get("httpd","port"),
-            "5984",
-            "{httpd, port} is 5984 by default"
+            "15984",
+            "{httpd, port} is 15984 by default"
         ),
 
         etap:is(
@@ -143,8 +143,8 @@ test() ->
     CheckCanWrite = fun() ->
         etap:is(
             couch_config:get("httpd", "port"),
-            "5984",
-            "{httpd, port} is still 5984 by default"
+            "15984",
+            "{httpd, port} is still 15984 by default"
         ),
 
         etap:is(
@@ -179,13 +179,13 @@ test() ->
     CheckDidntWrite = fun() ->
         etap:is(
             couch_config:get("httpd", "port"),
-            "5984",
+            "15984",
             "{httpd, port} was not persisted to the primary INI file."
         ),
 
         etap:is(
             couch_config:get("httpd", "bind_address"),
-            "127.0.0.1",
+            "0.0.0.0",
             "{httpd, bind_address} was not deleted form the primary INI file."
         )
     end,

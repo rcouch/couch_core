@@ -68,6 +68,8 @@ main(_) ->
 
 test() ->
     couch_server_sup:start_link(test_util:config_files()),
+    couch_httpd_sup:start_link(),
+
     OrigName = couch_config:get("couch_httpd_auth", "authentication_db"),
     couch_config:set(
         "couch_httpd_auth", "authentication_db",
@@ -78,7 +80,9 @@ test() ->
     couch_config:set("couch_httpd_auth", "authentication_db", OrigName, false),
     delete_db(auth_db_name()),
     delete_db(auth_db_2_name()),
+
     couch_server_sup:stop(),
+    couch_httpd:stop(),
     ok.
 
 

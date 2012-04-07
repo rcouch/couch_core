@@ -1,10 +1,23 @@
+ERLC ?= erlc
+
+
 all: check
 
-check: clean reltest
-	@./test/couch_dev/bin/test_js
+compile:
+	rebar -C rebar_dev.config compile
 
-reltest: deps reltestclean
-	rebar -C rebar_dev.config compile generate
+check: clean reltest js
+
+reltest: deps reltestclean compile
+	rebar -C rebar_dev.config generate
+
+js:
+	./test/couch_dev/bin/test_js
+
+etap:
+	@$(ERLC) -o test/couch_dev/test/etap/ test/files/test_util.erl
+	./test/couch_dev/bin/test_etap
+
 
 deps:
 	rebar -C rebar_dev.config get-deps

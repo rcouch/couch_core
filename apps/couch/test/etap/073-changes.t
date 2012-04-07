@@ -64,6 +64,7 @@ main(_) ->
 
 test() ->
     couch_server_sup:start_link(test_util:config_files()),
+    couch_httpd_sup:start_link(),
 
     test_by_doc_ids(),
     test_by_doc_ids_with_since(),
@@ -72,6 +73,7 @@ test() ->
     test_heartbeat(),
 
     couch_server_sup:stop(),
+    couch_httpd:stop(),
     ok.
 
 

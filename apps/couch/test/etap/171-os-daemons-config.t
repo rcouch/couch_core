@@ -26,11 +26,11 @@
 
 config_files() ->
     lists:map(fun test_util:build_file/1, [
-        "etc/couchdb/default_dev.ini"
+        "etc/default.ini"
     ]).
 
 daemon_cmd() ->
-    test_util:source_file("test/etap/171-os-daemons-config.es").
+    test_util:source_file("test/etap/couch/171-os-daemons-config.es").
 
 main(_) ->
     test_util:init_code_path(),
@@ -54,10 +54,10 @@ test() ->
     % "foo" is a required name by this test.
     couch_config:set("os_daemons", "foo", daemon_cmd(), false),
     timer:sleep(1000),
-    
+
     {ok, [D1]} = couch_os_daemons:info([table]),
     check_daemon(D1, "foo"),
-    
+
     ok.
 
 check_daemon(D, Name) ->

@@ -14,7 +14,7 @@
 % the License.
 
 default_config() ->
-    test_util:build_file("etc/couchdb/default_dev.ini").
+    test_util:build_file("etc/default.ini").
 
 main(_) ->
     test_util:init_code_path(),
@@ -68,7 +68,7 @@ test() ->
 
     etap:is(
         couch_config:get("httpd", "port", "bar"),
-        "5984",
+        "15984",
         "Only returns the default when the config setting does not exist."
     ),
 

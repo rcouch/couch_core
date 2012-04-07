@@ -14,7 +14,7 @@
 % the License.
 
 default_config() ->
-    test_util:build_file("etc/couchdb/default_dev.ini").
+    test_util:build_file("etc/default.ini").
 
 main(_) ->
     test_util:init_code_path(),
@@ -33,7 +33,7 @@ test() ->
 
     etap:is(
         couch_config:get("httpd", "port"),
-        "5984",
+        "15984",
         "{httpd, port} is 5984 by default."
     ),
 
@@ -64,7 +64,7 @@ test() ->
     % Implicitly checking that we *don't* call the function
     etap:is(
         couch_config:get("httpd", "bind_address"),
-        "127.0.0.1",
+        "0.0.0.0",
         "{httpd, bind_address} is not '0.0.0.0'"
     ),
     ok = couch_config:set("httpd", "bind_address", "0.0.0.0", false),

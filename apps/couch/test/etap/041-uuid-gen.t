@@ -14,13 +14,13 @@
 % the License.
 
 default_config() ->
-    test_util:build_file("etc/couchdb/default_dev.ini").
+    test_util:build_file("etc/default.ini").
 
 seq_alg_config() ->
-    test_util:source_file("test/etap/041-uuid-gen-seq.ini").
+    test_util:source_file("test/etap/couch/041-uuid-gen-seq.ini").
 
 utc_alg_config() ->
-    test_util:source_file("test/etap/041-uuid-gen-utc.ini").
+    test_util:source_file("test/etap/couch/041-uuid-gen-utc.ini").
 
 % Run tests and wait for the gen_servers to shutdown
 run_test(IniFiles, Test) ->
@@ -87,7 +87,7 @@ test() ->
         UUID = binary_to_list(couch_uuids:new()),
         Prefix = element(1, lists:split(26, UUID)),
         N = gen_until_pref_change(Prefix,0),
-        etap:diag("N is: ~p~n",[N]),                           
+        etap:diag("N is: ~p~n",[N]),
         etap:is(
             N >= 5000 andalso N =< 11000,
             true,
