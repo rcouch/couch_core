@@ -376,6 +376,7 @@ maybe_start_replication(State, DocId, RepDoc) ->
         Pid = spawn_link(fun() -> start_replication(Rep, 0) end),
         State#state{rep_start_pids = [Pid | State#state.rep_start_pids]};
     #rep_state{rep = #rep{doc_id = DocId}} ->
+        maybe_tag_rep_doc(DocId, RepDoc, ?l2b(BaseId)),
         State;
     #rep_state{starting = false, rep = #rep{doc_id = OtherDocId}} ->
         ?LOG_INFO("The replication specified by the document `~s` was already"
