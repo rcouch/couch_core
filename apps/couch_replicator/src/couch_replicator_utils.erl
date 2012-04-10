@@ -91,12 +91,12 @@ maybe_append_filters(Base,
         undefined ->
             case get_value(doc_ids, Options) of
             undefined ->
-                [];
-            <<"_", _/binary>> = Filter ->
-                [Filter, get_value(query_params, Options, {[]})];
+                [get_value(query_params, Options, {[]})];
             DocIds ->
-                [DocIds]
+                [DocIds, get_value(query_params, Options, {[]})]
             end;
+        <<"_", _/binary>> = Filter ->
+                [Filter, get_value(query_params, Options, {[]})];
         Filter ->
             [filter_code(Filter, Source, UserCtx),
                 get_value(query_params, Options, {[]})]
