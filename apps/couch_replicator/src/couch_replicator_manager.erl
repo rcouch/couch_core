@@ -432,7 +432,9 @@ replication_complete(DocId) ->
             % We want to be able to start the same replication but with
             % eventually different values for parameters that don't
             % contribute to its ID calculation.
-            _ = supervisor:delete_child(couch_replicator_job_sup, BaseId ++ Ext);
+            spawn(fun() ->
+                _ = supervisor:delete_child(couch_replicator_job_sup, BaseId ++ Ext)
+            end);
         #rep_state{} ->
             ok
         end,
