@@ -19,8 +19,8 @@
 
 %% Helper macro for declaring children of supervisor
 %% -define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
--define(CHILD(I), {I, {I, start_link, []}, permanent, 5000, worker, [I]}).
--define(CHILD(I, M, A), {I, {M, start_link, A}, permanent, 5000, worker,
+-define(CHILD(I), {I, {I, start_link, []}, permanent, brutal_kill, worker, [I]}).
+-define(CHILD(I, M, A), {I, {M, start_link, A}, permanent, brutal_kill, worker,
                              [M]}).
 
 start_link() ->
