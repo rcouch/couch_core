@@ -24,8 +24,30 @@
                              [M]}).
 
 start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+    {ok, Pid} = supervisor:start_link({local, ?MODULE}, ?MODULE, []),
+    write_uri_file(),
+    {ok, Pid}.
 
+write_uri_file() ->
+    Ip = couch_config:get("httpd", "bind_address"),
+    Uris = [couch_util:get_uri(Name, Ip) || Name <- [couch_httpd, https]],
+    case couch_config:get("couchdb", "uri_file", null) of
+    null -> ok;
+    UriFile ->
+        Lines = [begin case Uri of
+            undefined -> [];
+            Uri -> io_lib:format("~s~n", [Uri])
+            end end || Uri <- Uris],
+        case file:write_file(UriFile, Lines) of
+        ok -> ok;
+        {error, eacces} ->
+            lager:info("Permission error when writing to URI file ~s", [UriFile]),
+            throw({file_permission_error, UriFile});
+        Error2 ->
+            lager:info("Failed to write to URI file ~s: ~p~n", [UriFile, Error2]),
+            throw(Error2)
+        end
+    end.
 
 init([]) ->
     HTTP = ?CHILD(couch_httpd),
