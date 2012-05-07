@@ -89,6 +89,18 @@ handle_design_req(#httpd{
     false -> ok
     end,
 
+    case couch_db:is_dropbox(Db) of
+    true ->
+        case (catch couch_db:check_is_dropbox_member(Db)) of
+        ok -> ok;
+        _ ->
+            throw({forbidden, <<"Only admins can access design document",
+                                "acions for dropbox databases">>})
+        end;
+    false ->
+        ok
+    end,
+
     % load ddoc
     DesignId = <<"_design/", DesignName/binary>>,
     DDoc = couch_httpd_db:couch_doc_open(Db, DesignId, nil, [ejson_body]),

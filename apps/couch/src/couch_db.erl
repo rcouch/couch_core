@@ -30,6 +30,7 @@
 -export([changes_since/4,changes_since/5,read_doc/2,new_revid/1]).
 -export([check_is_admin/1, check_is_member/1]).
 -export([reopen/1, is_system_db/1, compression/1]).
+-export([is_dropbox/1, get_dropbox_members/1, check_is_dropbox_member/1]).
 
 -include("couch_db.hrl").
 
@@ -317,6 +318,7 @@ get_design_docs(Db) ->
     {ok, _, Docs} = couch_btree:fold(by_id_btree(Db), FoldFun, [], KeyOpts),
     Docs.
 
+
 check_is_admin(#db{user_ctx=#user_ctx{name=Name,roles=Roles}}=Db) ->
     {Admins} = get_admins(Db),
     AdminRoles = [<<"_admin">> | couch_util:get_value(<<"roles">>, Admins, [])],
@@ -359,6 +361,39 @@ check_is_member(#db{user_ctx=#user_ctx{name=Name,roles=Roles}=UserCtx}=Db) ->
         end
     end.
 
+check_is_dropbox_member(#db{user_ctx=#user_ctx{name=Name,
+                                               roles=Roles}=UserCtx}=Db) ->
+    case (catch check_is_admin(Db)) of
+    ok -> ok;
+    _ ->
+        {Members} = get_dropbox_members(Db),
+        DropboxRoles = couch_util:get_value(<<"roles">>, Members,[]),
+        WithAdminRoles = [<<"_admin">> | DropboxRoles],
+        DropboxNames = couch_util:get_value(<<"names">>, Members,[]),
+        case DropboxNames ++ DropboxRoles of
+        [] ->
+            % no dropbox members, only admins can access to this
+            throw({forbidden, <<"Only admins can access to",
+                                " this dropboxdb.">>});
+        _Else ->
+            case WithAdminRoles -- Roles of
+            WithAdminRoles -> % same list, not an reader role
+                case DropboxNames -- [Name] of
+                DropboxNames -> % same names, not a reader
+                    ?LOG_DEBUG("Not a dropbox member: UserCtx ~p " ++
+                               "vs Names ~p Roles ~p",[UserCtx, DropboxNames,
+                                                       WithAdminRoles]),
+                    throw({unauthorized,
+                           <<"You are not authorized to access this db.">>});
+                _ ->
+                    ok
+                end;
+            _ ->
+                ok
+            end
+        end
+    end.
+
 get_admins(#db{security=SecProps}) ->
     couch_util:get_value(<<"admins">>, SecProps, {[]}).
 
@@ -366,6 +401,9 @@ get_members(#db{security=SecProps}) ->
     % we fallback to readers here for backwards compatibility
     couch_util:get_value(<<"members">>, SecProps,
         couch_util:get_value(<<"readers">>, SecProps, {[]})).
+
+get_dropbox_members(#db{security=SecProps}) ->
+    couch_util:get_value(<<"dropbox_members">>, SecProps, {[]}).
 
 get_security(#db{security=SecProps}) ->
     {SecProps}.
@@ -378,6 +416,9 @@ set_security(#db{update_pid=Pid}=Db, {NewSecProps}) when is_list(NewSecProps) ->
     ok;
 set_security(_, _) ->
     throw(bad_request).
+
+is_dropbox(#db{security=SecProps}) ->
+    couch_util:get_value(<<"dropbox">>, SecProps, false).
 
 validate_security_object(SecProps) ->
     Admins = couch_util:get_value(<<"admins">>, SecProps, {[]}),
@@ -1316,7 +1357,19 @@ make_doc(#db{updater_fd = Fd} = Db, Id, Deleted, Bp, RevisionPath) ->
         atts = Atts,
         deleted = Deleted
     },
-    after_doc_read(Db, Doc).
+
+    case is_dropbox(Db) of
+        true ->
+            case (catch couch_db:check_is_dropbox_member(Db)) of
+                ok ->
+                    Doc;
+                _ ->
+                    throw({forbidden, <<"Only administrators can view ",
+                                      "docs in a dropbox database.">>})
+            end;
+        _ ->
+            after_doc_read(Db, Doc)
+    end.
 
 
 after_doc_read(#db{after_doc_read = nil}, Doc) ->

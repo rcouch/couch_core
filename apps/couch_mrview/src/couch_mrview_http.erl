@@ -103,17 +103,30 @@ handle_cleanup_req(Req, _Db) ->
 all_docs_req(Req, Db, Keys) ->
     case couch_db:is_system_db(Db) of
     true ->
-        case (catch couch_db:check_is_admin(Db)) of
+        all_doc_if_admin(Req, Db, Keys,
+                         fun couch_db:check_is_admin/1,
+                          <<"Only admins can access _all_docs",
+                            " of system databases.">>);
+    false ->
+        case couch_db:is_dropbox(Db) of
+        true ->
+            all_doc_if_admin(Req, Db, Keys,
+                             fun couch_db:check_is_dropbox_member/1,
+                              <<"Only admins can access _all docs",
+                                " in a dropbox db">>);
+        false ->
+            do_all_docs_req(Req, Db, Keys)
+        end
+    end.
+
+
+all_doc_if_admin(Req, Db, Keys, CheckFun, Msg) ->
+    case (catch CheckFun(Db)) of
         ok ->
             do_all_docs_req(Req, Db, Keys);
         _ ->
-            throw({forbidden, <<"Only admins can access _all_docs",
-                " of system databases.">>})
-        end;
-    false ->
-        do_all_docs_req(Req, Db, Keys)
+            throw({forbidden, Msg})
     end.
-
 
 do_all_docs_req(Req, Db, Keys) ->
     Args0 = parse_qs(Req, Keys),
