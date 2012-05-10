@@ -40,14 +40,23 @@ handle_changes_req1(Req, #db{name=DbName}=Db) ->
 
 do_changes_req(Req, Db) ->
     MakeCallback = fun(Resp) ->
-        fun({change, Change, _}, "continuous") ->
+        fun({change, {ChangeProp}=Change, _}, "eventsource") ->
+                Seq = proplists:get_value(<<"seq">>, ChangeProp),
+                couch_httpd:send_chunk(Resp, ["data: ", ?JSON_ENCODE(Change),
+                                              "\n", "id: ", ?JSON_ENCODE(Seq),
+                                              "\n\n"]);
+        ({change, Change, _}, "continuous") ->
             couch_httpd:send_chunk(Resp, [?JSON_ENCODE(Change) | "\n"]);
         ({change, Change, Prepend}, _) ->
             couch_httpd:send_chunk(Resp, [Prepend, ?JSON_ENCODE(Change)]);
+        (start, "eventsource") ->
+            ok;
         (start, "continuous") ->
             ok;
         (start, _) ->
             couch_httpd:send_chunk(Resp, "{\"results\":[\n");
+        ({stop, _EndSeq}, "eventsource") ->
+            couch_httpd:end_json_response(Resp);
         ({stop, EndSeq}, "continuous") ->
             couch_httpd:send_chunk(
                 Resp,
@@ -85,6 +94,14 @@ do_changes_req(Db, Req, #changes_args{feed="normal"}, ChangesFun, MakeCallback) 
                     [{"ETag", CurrentEtag}]),
                 ChangesFun(MakeCallback(Resp))
         end);
+do_changes_req(_Db, Req, #changes_args{feed="eventsource"}, ChangesFun,
+               MakeCallback) ->
+    Headers = [
+        {"Content-Type", "text/event-stream"},
+        {"Cache-Control", "no-cache"}
+    ],
+    {ok, Resp} = couch_httpd:start_json_response(Req, 200, Headers),
+    ChangesFun(MakeCallback(Resp));
 do_changes_req(_Db, Req, _ChangesArgs, ChangesFun, MakeCallback) ->
     % "longpoll" or "continuous"
     {ok, Resp} = couch_httpd:start_json_response(Req, 200),
@@ -92,12 +109,14 @@ do_changes_req(_Db, Req, _ChangesArgs, ChangesFun, MakeCallback) ->
 
 parse_changes_query(Req) ->
     lists:foldl(fun({Key, Value}, Args) ->
-        case {Key, Value} of
+        case {string:to_lower(Key), Value} of
         {"feed", _} ->
             Args#changes_args{feed=Value};
         {"descending", "true"} ->
             Args#changes_args{dir=rev};
         {"since", _} ->
+            Args#changes_args{since=list_to_integer(Value)};
+        {"last-event-id", _} ->
             Args#changes_args{since=list_to_integer(Value)};
         {"limit", _} ->
             Args#changes_args{limit=list_to_integer(Value)};
