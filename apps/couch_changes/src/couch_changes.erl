@@ -33,6 +33,7 @@
     resp_type,
     limit,
     include_docs,
+    fields,
     conflicts,
     timeout,
     timeout_fun
@@ -308,6 +309,7 @@ start_sending_changes(Callback, UserAcc, ResponseType) ->
 build_acc(Args, Callback, UserAcc, Db, StartSeq, Prepend, Timeout, TimeoutFun) ->
     #changes_args{
         include_docs = IncludeDocs,
+        fields = Fields,
         conflicts = Conflicts,
         limit = Limit,
         feed = ResponseType,
@@ -323,6 +325,7 @@ build_acc(Args, Callback, UserAcc, Db, StartSeq, Prepend, Timeout, TimeoutFun) -
         resp_type = ResponseType,
         limit = Limit,
         include_docs = IncludeDocs,
+        fields = Fields,
         conflicts = Conflicts,
         timeout = Timeout,
         timeout_fun = TimeoutFun
@@ -594,7 +597,8 @@ changes_row(Results, DocInfo, Acc) ->
     #doc_info{
         id = Id, high_seq = Seq, revs = [#rev_info{deleted = Del} | _]
     } = DocInfo,
-    #changes_acc{db = Db, include_docs = IncDoc, conflicts = Conflicts} = Acc,
+    #changes_acc{db = Db, include_docs = IncDoc, fields=Fields,
+                 conflicts = Conflicts} = Acc,
     {[{<<"seq">>, Seq}, {<<"id">>, Id}, {<<"changes">>, Results}] ++
         deleted_item(Del) ++ case IncDoc of
             true ->
@@ -605,7 +609,16 @@ changes_row(Results, DocInfo, Acc) ->
                 Doc = couch_index_util:load_doc(Db, DocInfo, Opts),
                 case Doc of
                     null -> [{doc, null}];
-                    _ ->  [{doc, couch_doc:to_json_obj(Doc, [])}]
+                    _ ->
+                        case Fields of
+                            [] ->
+
+                                [{doc, couch_doc:to_json_obj(Doc, [])}];
+                            _ ->
+                                JsonObj = couch_doc:to_json_obj(Doc, []),
+                                [{doc, filter_doc_fields(Fields,
+                                                         JsonObj, [])}]
+                        end
                 end;
             false ->
                 []
@@ -677,6 +690,20 @@ filter_docs(Req, Db, DDoc, FName, Docs) ->
     [true, Passes] = couch_query_servers:ddoc_prompt(DDoc, [<<"filters">>, FName],
         [JsonDocs, JsonReq]),
     {ok, Passes}.
+
+filter_doc_fields([], {Props}, Acc) ->
+    Id = proplists:get_value(<<"_id">>, Props),
+    Rev = proplists:get_value(<<"_rev">>, Props),
+    Acc1 = [{<<"_id">>, Id}, {<<"_rev">>, Rev}] ++ lists:reverse(Acc),
+    {Acc1};
+filter_doc_fields([Field|Rest], {Props}=Doc, Acc) ->
+    Acc1 = case couch_util:get_value(Field, Props) of
+        undefined ->
+            Acc;
+        Value ->
+            [{Field, Value} | Acc]
+    end,
+    filter_doc_fields(Rest, Doc, Acc1).
 
 parse_view_args({json_req, {Props}}) ->
     {Query} = couch_util:get_value(<<"query">>, Props, {[]}),

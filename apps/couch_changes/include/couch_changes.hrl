@@ -24,6 +24,7 @@
     filter_view,
     view_args = [],
     include_docs = false,
+    fields = [],
     conflicts = false,
     db_open_options = []
 }).

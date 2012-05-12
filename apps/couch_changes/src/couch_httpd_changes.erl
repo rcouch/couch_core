@@ -131,6 +131,8 @@ parse_changes_query(Req) ->
             Args#changes_args{timeout=list_to_integer(Value)};
         {"include_docs", "true"} ->
             Args#changes_args{include_docs=true};
+        {"fields", _} ->
+            Args#changes_args{fields=?JSON_DECODE(Value)};
         {"conflicts", "true"} ->
             Args#changes_args{conflicts=true};
         {"filter", _} ->
