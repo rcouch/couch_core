@@ -101,7 +101,7 @@ do_changes_req(_Db, Req, #changes_args{feed="eventsource"}, ChangesFun,
         {"Content-Type", "text/event-stream"},
         {"Cache-Control", "no-cache"}
     ],
-    {ok, Resp} = couch_httpd:start_json_response(Req, 200, Headers),
+    {ok, Resp} = couch_httpd:start_chunked_response(Req, 200, Headers),
     ChangesFun(MakeCallback(Resp));
 do_changes_req(_Db, Req, _ChangesArgs, ChangesFun, MakeCallback) ->
     % "longpoll" or "continuous"
