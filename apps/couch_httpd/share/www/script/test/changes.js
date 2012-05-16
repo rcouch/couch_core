@@ -140,14 +140,13 @@ couchTests.changes = function(debug) {
     xhr.abort();
 
 
-    if (window.EventSource) {
+    if (!!window.EventSource) {
       var source = new EventSource(
               "/test_suite_db/_changes?feed=eventsource");
       var results = [];
       var sourceListener = function(e) {
         var data = JSON.parse(e.data);
         results.push(data);
-
       };
 
       source.addEventListener('message', sourceListener , false);
