@@ -1,7 +1,6 @@
 ERLC ?= erlc
 
-
-all: check
+all: deps compile
 
 compile:
 	rebar -C rebar_dev.config compile
