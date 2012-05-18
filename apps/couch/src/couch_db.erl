@@ -335,6 +335,14 @@ check_is_admin(#db{user_ctx=#user_ctx{name=Name,roles=Roles}}=Db) ->
         ok
     end.
 
+check_is_member(#db{name = <<"rc_", _/binary>> } = Db) ->
+    case (catch check_is_admin(Db)) of
+        ok ->
+            ok;
+        _ ->
+            throw({unauthorized,
+                   <<"You are not authorized to access this db.">>})
+    end;
 check_is_member(#db{user_ctx=#user_ctx{name=Name,roles=Roles}=UserCtx}=Db) ->
     case (catch check_is_admin(Db)) of
     ok -> ok;
