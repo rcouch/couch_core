@@ -84,21 +84,21 @@ clean_unix() ->
     sh(unix_make() ++ " -f c_src/Makefile.unix clean", Env),
     erlang:halt(0).
 
-    
+
 build_win() ->
     RefugeBuild = "c:\\refuge-build",
     BuildWinLibs = filename:join(
-	    [RefugeBuild, "scripts", "build_win_libs.bat"]
-	),
+        [RefugeBuild, "scripts", "build_win_libs.bat"]
+    ),
     MakefileWindows = filename:join(
-	    [RefugeBuild, "scripts", "Makefile_windows.bat"]
+        [RefugeBuild, "scripts", "Makefile_windows.bat"]
     ),
     Env = os_env(),
     case filelib:is_dir(RefugeBuild) of
         true ->
             %% build static libs
             sh(BuildWinLibs ++ " " ++ rootdir(), Env),
-      
+            
             %% make couchjs, icu driver and nifs
             sh(MakefileWindows, Env),
             erlang:halt(0);
@@ -111,12 +111,12 @@ build_win() ->
 clean_win() ->
     RefugeBuild = "c:\\refuge-build",
     MakefileWindows = filename:join(
-	    [RefugeBuild, "scripts", "Makefile_windows.bat"]
+        [RefugeBuild, "scripts", "Makefile_windows.bat"]
     ),
     Env = os_env(),
     case filelib:is_dir(RefugeBuild) of
         true ->
- 			io:format("==> couchjs, couch_collate (clean)~n", []),
+            io:format("==> couchjs, couch_collate (clean)~n", []),
             sh(MakefileWindows ++ " clean", Env),
             erlang:halt(0);
         false -> 
