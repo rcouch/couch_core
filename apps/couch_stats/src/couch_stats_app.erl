@@ -10,11 +10,14 @@
 % License for the specific language governing permissions and limitations under
 % the License.
 
-{application, couch_index, [
-    {description, "CouchDB Secondary Index Manager"},
-    {vsn, "0.1"},
-    {modules, []},
-    {registered, [couch_index_server]},
-    {applications, [kernel, stdlib, couch]},
-    {mod, {couch_index_app, []}}
-]}.
+-module(couch_stats_app).
+
+-behaviour(application).
+
+-export([start/2, stop/1]).
+
+start(_Type, _Args) ->
+    couch_stats_sup:start_link().
+
+stop(_) ->
+    ok.

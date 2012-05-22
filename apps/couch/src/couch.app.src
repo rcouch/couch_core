@@ -12,12 +12,10 @@
         couch_rep_sup,
         couch_secondary_services,
         couch_server,
-        couch_stats_aggregator,
-        couch_stats_collector,
         couch_task_status
     ]},
     {mod, {couch_app, []}},
 
     {applications, [kernel, stdlib, crypto, lager, sasl, public_key, ssl,
-                    inets, os_mon]}
+                    inets, os_mon, couch_stats]}
 ]}.

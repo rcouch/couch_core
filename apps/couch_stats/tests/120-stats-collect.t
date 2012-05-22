@@ -26,7 +26,7 @@ main(_) ->
     ok.
 
 test() ->
-    couch_stats_collector:start(),
+    couch_stats_collector:start_link(),
     ok = test_counters(),
     ok = test_abs_values(),
     ok = test_proc_counting(),
@@ -63,7 +63,7 @@ test_abs_values() ->
         lists:seq(1, 15),
         "Absolute values are recorded correctly."
     ),
-    
+
     couch_stats_collector:clear(bar),
     etap:is(
         couch_stats_collector:get(bar),
@@ -86,7 +86,7 @@ test_proc_counting() ->
         1,
         "track_process_count incrememnts the counter."
     ),
-    
+
     TwicePid = spawn(fun() ->
         couch_stats_collector:track_process_count(hoopla),
         couch_stats_collector:track_process_count(hoopla),
@@ -100,7 +100,7 @@ test_proc_counting() ->
         3,
         "track_process_count allows more than one incrememnt per Pid"
     ),
-    
+
     OnePid ! sepuku,
     receive {'DOWN', R1, _, _, _} -> ok end,
     timer:sleep(250),
@@ -109,7 +109,7 @@ test_proc_counting() ->
         2,
         "Process count is decremented when process exits."
     ),
-    
+
     TwicePid ! sepuku,
     receive {'DOWN', R2, _, _, _} -> ok end,
     timer:sleep(250),
@@ -128,13 +128,13 @@ test_all() ->
         [{foo, 0}, {hoopla, 0}, {bar, [1.0, 0.0]}],
         "all/0 returns all counters and absolute values."
     ),
-    
+
     etap:is(
         couch_stats_collector:all(incremental),
         [{foo, 0}, {hoopla, 0}],
         "all/1 returns only the specified type."
     ),
-    
+
     couch_stats_collector:record(zing, 90),
     etap:is(
         couch_stats_collector:all(absolute),

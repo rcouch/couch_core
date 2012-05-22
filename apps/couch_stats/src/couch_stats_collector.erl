@@ -18,7 +18,7 @@
 
 -behaviour(gen_server).
 
--export([start/0, stop/0]).
+-export([start_link/0, stop/0]).
 -export([all/0, all/1, get/1, increment/1, decrement/1, record/2, clear/1]).
 -export([track_process_count/1, track_process_count/2]).
 
@@ -28,7 +28,7 @@
 -define(HIT_TABLE, stats_hit_table).
 -define(ABS_TABLE, stats_abs_table).
 
-start() ->
+start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 stop() ->

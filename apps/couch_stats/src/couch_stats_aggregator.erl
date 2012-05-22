@@ -13,7 +13,9 @@
 -module(couch_stats_aggregator).
 -behaviour(gen_server).
 
--export([start/0, start/1, stop/0]).
+-export([start_link/0, start_link/1,
+         stop/0,
+         set_samples/1, set_rate/1]).
 -export([all/0, all/1, get/1, get/2, get_json/1, get_json/2, collect_sample/0]).
 
 -export([init/1, terminate/2, code_change/3]).
@@ -33,16 +35,34 @@
     samples = []
 }).
 
+-record(state, {tref,
+                rate,
+                desc_fname,
+                samples}).
 
-start() ->
-    PrivDir = couch_util:priv_dir(),
-    start(filename:join(PrivDir, "stat_descriptions.cfg")).
-    
-start(FileName) ->
+start_link() ->
+    PrivDir = case code:priv_dir(couch_stats) of
+        {error, _} ->
+            %% try to get relative priv dir. useful for tests.
+            EbinDir = filename:dirname(code:which(?MODULE)),
+            AppPath = filename:dirname(EbinDir),
+            filename:join(AppPath, "priv");
+        Dir -> Dir
+    end,
+
+    start_link(filename:join([PrivDir, "stat_descriptions.cfg"])).
+
+start_link(FileName) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [FileName], []).
 
 stop() ->
     gen_server:cast(?MODULE, stop).
+
+set_samples(Samples) ->
+    gen_server:call(?MODULE, {set_samples, Samples}, infinity).
+
+set_rate(Rate) ->
+    gen_server:call(?MODULE, {set_rate, Rate}).
 
 all() ->
     ?MODULE:all(0).
@@ -92,34 +112,18 @@ collect_sample() ->
 init(StatDescsFileName) ->
     % Create an aggregate entry for each {description, rate} pair.
     ets:new(?MODULE, [named_table, set, protected]),
-    SampleStr = couch_config:get("stats", "samples", "[0]"),
-    {ok, Samples} = couch_util:parse_term(SampleStr),
-    {ok, Descs} = file:consult(StatDescsFileName),
-    lists:foreach(fun({Sect, Key, Value}) ->
-        lists:foreach(fun(Secs) ->
-            Agg = #aggregate{
-                description=list_to_binary(Value),
-                seconds=Secs
-            },
-            ets:insert(?MODULE, {{{Sect, Key}, Secs}, Agg})
-        end, Samples)
-    end, Descs),
-    
-    Self = self(),
-    ok = couch_config:register(
-        fun("stats", _) -> exit(Self, config_change) end
-    ),
-    
-    Rate = list_to_integer(couch_config:get("stats", "rate", "1000")),
+    Samples = get_app_env(samples, [0]),
+    init_samples(Samples, StatDescsFileName),
+    Rate = get_app_env(rate, 1000),
     % TODO: Add timer_start to kernel start options.
     {ok, TRef} = timer:apply_after(Rate, ?MODULE, collect_sample, []),
-    {ok, {TRef, Rate}}.
-    
-terminate(_Reason, {TRef, _Rate}) ->
-    timer:cancel(TRef),
-    ok.
+    {ok, #state{tref=TRef,
+                rate=Rate,
+                desc_fname=StatDescsFileName,
+                samples=Samples}}.
 
-handle_call(collect_sample, _, {OldTRef, SampleInterval}) ->
+handle_call(collect_sample, _From, #state{tref=OldTRef,
+                                          rate=SampleInterval}=State) ->
     timer:cancel(OldTRef),
     {ok, TRef} = timer:apply_after(SampleInterval, ?MODULE, collect_sample, []),
     % Gather new stats values to add.
@@ -137,7 +141,7 @@ handle_call(collect_sample, _, {OldTRef, SampleInterval}) ->
         end, {0, 0}, Values2),
         {Key, {absolute, Mean}}
     end, couch_stats_collector:all(absolute)),
-    
+
     Values = Incs ++ Abs,
     Now = erlang:now(),
     lists:foreach(fun({{Key, Rate}, Agg}) ->
@@ -151,7 +155,16 @@ handle_call(collect_sample, _, {OldTRef, SampleInterval}) ->
         end,
         ets:insert(?MODULE, {{Key, Rate}, NewAgg})
     end, ets:tab2list(?MODULE)),
-    {reply, ok, {TRef, SampleInterval}}.
+    {reply, ok, State#state{tref=TRef}};
+
+handle_call({set_samples, Samples}, _From, #state{desc_fname=FName}=State) ->
+    init_samples(Samples, FName),
+    {reply, ok, State#state{samples=Samples}};
+
+handle_call({set_rate, Rate}, _From, #state{tref=OldTRef}=State) ->
+    timer:cancel(OldTRef),
+    {ok, TRef} = timer:apply_after(Rate, ?MODULE, collect_sample, []),
+    {reply, ok, State#state{tref=TRef, rate=Rate}}.
 
 handle_cast(stop, State) ->
     {stop, normal, State}.
@@ -162,6 +175,9 @@ handle_info(_Info, State) ->
 code_change(_OldVersion, State, _Extra) ->
     {ok, State}.
 
+terminate(_Reason, #state{tref=TRef}) ->
+    timer:cancel(TRef),
+    ok.
 
 new_value(incremental, Value, null) ->
     Value;
@@ -195,7 +211,7 @@ add_value(Time, Value, Agg) ->
         variance=Variance,
         samples=Samples
     } = Agg,
-    
+
     NewCount = Count + 1,
     NewMean = Mean + (Value - Mean) / NewCount,
     NewVariance = Variance + (Value - Mean) * (Value - NewMean),
@@ -295,3 +311,30 @@ clamp_value(Val) when Val > 0.00000000000001 ->
     Val;
 clamp_value(_) ->
     0.0.
+
+
+get_app_env(Env, Default) ->
+    case application:get_env(couch_stats, Env) of
+        {ok, Val} -> Val;
+        undefined -> Default
+    end.
+
+
+init_samples(Samples, StatDescsFileName) ->
+    {ok, Descs} = file:consult(StatDescsFileName),
+    lists:foreach(fun({Sect, Key, Value}) ->
+        lists:foreach(fun(Secs) ->
+            Agg = #aggregate{
+                description=to_binary(Value),
+                seconds=Secs
+            },
+            ets:insert(?MODULE, {{{Sect, Key}, Secs}, Agg})
+        end, Samples)
+    end, Descs),
+    ok.
+
+
+to_binary(Value) when is_list(Value) ->
+    list_to_binary(Value);
+to_binary(Value) ->
+    Value.
