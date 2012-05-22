@@ -26,7 +26,7 @@ utc_alg_config() ->
 run_test(IniFiles, Test) ->
     {ok, Pid} = couch_config:start_link(IniFiles),
     erlang:monitor(process, Pid),
-    couch_uuids:start(),
+    couch_uuids:start_link(),
     Test(),
     couch_uuids:stop(),
     couch_config:stop(),
