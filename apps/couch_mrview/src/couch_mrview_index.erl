@@ -38,8 +38,11 @@ get(Property, State) ->
             Opts = State#mrst.design_opts,
             IncDesign = couch_util:get_value(<<"include_design">>, Opts, false),
             LocalSeq = couch_util:get_value(<<"local_seq">>, Opts, false),
+            IncludeDeleted = couch_util:get_value(<<"include_deleted">>,
+                Opts, false),
             if IncDesign -> [include_design]; true -> [] end
-                ++ if LocalSeq -> [local_seq]; true -> [] end;
+                ++ if LocalSeq -> [local_seq]; true -> [] end
+                ++ if IncludeDeleted -> [include_deleted]; true -> [] end;
         info ->
             #mrst{
                 fd = Fd,

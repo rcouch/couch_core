@@ -18,12 +18,14 @@
     idx_name,
     language,
     design_opts=[],
+    seq_indexed=false,
+    include_deleted=false,
     lib,
     views,
     id_btree=nil,
+    seq_btree=nil,
     update_seq=0,
     purge_seq=0,
-
     first_build,
     partial_resp_pid,
     doc_acc,
@@ -35,12 +37,14 @@
 
 -record(mrview, {
     id_num,
+    seq_indexed=false,
     update_seq=0,
     purge_seq=0,
     map_names=[],
     reduce_funs=[],
     def,
     btree=nil,
+    seq_btree=nil,
     options=[]
 }).
 
@@ -49,6 +53,7 @@
     seq=0,
     purge_seq=0,
     id_btree_state=nil,
+    seq_btree_state=nil,
     view_states=nil
 }).
 
