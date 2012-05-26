@@ -19,6 +19,12 @@ start_link() ->
 
 init([]) ->
     Children = [
+        {couch_uuids,
+            {couch_uuids, start_link, []},
+            permanent,
+            brutal_kill,
+            worker,
+            [couch_uuids]},
         {couch_task_status,
             {couch_task_status, start_link, []},
             permanent,

@@ -32,9 +32,9 @@ main(_) ->
     ok.
 
 test() ->
-    couch_config:start_link([ini_file()]),
-    couch_stats_collector:start(),
-    couch_stats_aggregator:start(cfg_file()),
+    couch_config:start([ini_file()]),
+    couch_stats_collector:start_link(),
+    couch_stats_aggregator:start_link(cfg_file()),
     ok = test_all_empty(),
     ok = test_get_empty(),
     ok = test_count_stats(),

@@ -11,7 +11,7 @@
 % the License.
 
 -module(couch_httpd_changes).
--include_lib("couch_changes/include/couch_changes.hrl").
+-include("couch_changes.hrl").
 -include_lib("couch/include/couch_db.hrl").
 -include_lib("couch_httpd/include/couch_httpd.hrl").
 -export([handle_changes_req/2]).
@@ -101,7 +101,7 @@ do_changes_req(_Db, Req, #changes_args{feed="eventsource"}, ChangesFun,
         {"Content-Type", "text/event-stream"},
         {"Cache-Control", "no-cache"}
     ],
-    {ok, Resp} = couch_httpd:start_json_response(Req, 200, Headers),
+    {ok, Resp} = couch_httpd:start_chunked_response(Req, 200, Headers),
     ChangesFun(MakeCallback(Resp));
 do_changes_req(_Db, Req, _ChangesArgs, ChangesFun, MakeCallback) ->
     % "longpoll" or "continuous"

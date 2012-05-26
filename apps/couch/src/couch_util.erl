@@ -28,7 +28,7 @@
 -export([url_strip_password/1]).
 -export([encode_doc_id/1]).
 -export([with_db/2]).
--export([start_app_deps/1]).
+-export([start_app_deps/1, ensure_started/1]).
 -export([capitalize/1]).
 -export([json_decode/1]).
 -export([get_uri/2, get_scheme/1, get_port/1]).

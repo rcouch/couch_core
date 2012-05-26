@@ -112,7 +112,18 @@ stop() ->
 
 config_change("daemons", _) ->
     supervisor:terminate_child(couch_server_sup, couch_secondary_services),
-    supervisor:restart_child(couch_server_sup, couch_secondary_services).
+    supervisor:restart_child(couch_server_sup,
+                             couch_secondary_services);
+config_change("stat", "rate") ->
+    NewRate = integer_to_list(
+            couch_config:get_value("stats", "rate", "1000")
+    ),
+    couch_stats_aggregator:set_rate(NewRate);
+config_change("stats", "samples") ->
+    SampleStr = couch_config:get("stats", "samples", "[0]"),
+    {ok, Samples} = couch_util:parse_term(SampleStr),
+    couch_stats_aggregator:set_samples(Samples).
+
 
 init(ChildSpecs) ->
     {ok, ChildSpecs}.

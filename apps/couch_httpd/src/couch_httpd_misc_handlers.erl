@@ -74,7 +74,17 @@ handle_utils_dir_req(Req, _) ->
     send_method_not_allowed(Req, "GET,HEAD").
 
 handle_all_dbs_req(#httpd{method='GET'}=Req) ->
-    {ok, DbNames} = couch_server:all_databases(),
+    IsAdmin = case catch(couch_httpd:verify_is_server_admin(Req)) of
+        ok -> true;
+        _ -> false
+    end,
+    {ok, DbNames} = couch_server:all_databases(fun
+                (<<"rc_", _/binary>>, Acc)
+                        when IsAdmin =:= false ->
+                    {ok, Acc};
+                (Dbname, Acc) ->
+                    {ok, [Dbname|Acc]}
+            end, []),
     send_json(Req, DbNames);
 handle_all_dbs_req(Req) ->
     send_method_not_allowed(Req, "GET,HEAD").
