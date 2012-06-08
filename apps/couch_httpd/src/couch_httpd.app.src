@@ -9,5 +9,5 @@
     {mod, {couch_httpd_app, []}},
 
     {applications, [kernel, stdlib, crypto, sasl,
-        public_key, ssl, inets, oauth, ibrowse, mochiweb, couch]}
+        public_key, ssl, inets, oauth, ibrowse, mochiweb, cowboy, couch]}
 ]}.

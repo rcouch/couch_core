@@ -14,8 +14,7 @@
 -include_lib("couch/include/couch_db.hrl").
 -include_lib("couch_httpd/include/couch_httpd.hrl").
 
--export([start_link/0, start_link/1, stop/0, config_change/2,
-        handle_request/5]).
+-export([handle_request/5, child_spec/1]).
 
 -export([header_value/2,header_value/3,qs_value/2,qs_value/3,qs/1,qs_json_value/3]).
 -export([path/1,absolute_uri/2,body_length/1]).
@@ -32,18 +31,12 @@
 -export([send_json/2,send_json/3,send_json/4,last_chunk/1,parse_multipart_request/3]).
 -export([accepted_encodings/1,handle_request_int/5,validate_referer/1,validate_ctype/2]).
 -export([vendor_id/0]).
--export([display_uris/1]).
+-export([display_uris/0, display_uris/1, get_listeners/0]).
 
-start_link() ->
-    start_link(http).
-start_link(http) ->
-    Port = couch_config:get("httpd", "port", "5984"),
-    start_link(?MODULE, [{port, Port}]);
-start_link(https) ->
-    Port = couch_config:get("ssl", "port", "6984"),
+ssl_options() ->
     CertFile = couch_config:get("ssl", "cert_file", nil),
     KeyFile = couch_config:get("ssl", "key_file", nil),
-    Options = case CertFile /= nil of
+    case CertFile /= nil of
         true ->
             SslOpts0 = [{certfile, CertFile}],
 
@@ -117,20 +110,39 @@ start_link(https) ->
                                            make_arity_3_fun(SpecStr)}]
                     end
             end,
-            [{port, Port}, {ssl, true}, {ssl_opts, FinalSslOpts}];
+            FinalSslOpts;
         false ->
             ?LOG_ERROR("SSL enabled but PEM certificates are missing.", []),
             throw({error, missing_certs})
-    end,
-    start_link(https, Options).
+    end.
 
-start_link(Name, Options) ->
-    % read config and register for configuration changes
-
-    % just stop if one of the config settings change. couch_server_sup
-    % will restart us and then we will pick up the new settings.
-
+server_options() ->
+    {ok, ServerOptions} = couch_util:parse_term(
+        couch_config:get("httpd", "server_options", "[]")),
     BindAddress = couch_config:get("httpd", "bind_address", any),
+
+    ParsedIp = case BindAddress of
+        any ->
+            any;
+        Ip when is_tuple(Ip) ->
+            Ip;
+        Ip when is_list(Ip) ->
+            {ok, IpTuple} = inet_parse:address(Ip),
+            IpTuple
+    end,
+
+    [{ip, ParsedIp} | ServerOptions].
+
+
+child_spec(http) ->
+    Port = list_to_integer(couch_config:get("httpd", "port", "5984")),
+    child_spec(http, cowboy_tcp_transport, Port,  server_options());
+child_spec(https) ->
+    Options = server_options() ++ ssl_options(),
+    Port = list_to_integer(couch_config:get("ssl", "port", "6984")),
+    child_spec(https, cowboy_ssl_transport, Port,  Options).
+
+child_spec(Name, Transport, Port, TransOpts0) ->
     DefaultSpec = "{couch_httpd_db, handle_request}",
     DefaultFun = make_arity_1_fun(
         couch_config:get("httpd", "default_handler", DefaultSpec)
@@ -154,8 +166,6 @@ start_link(Name, Options) ->
     UrlHandlers = dict:from_list(UrlHandlersList),
     DbUrlHandlers = dict:from_list(DbUrlHandlersList),
     DesignUrlHandlers = dict:from_list(DesignUrlHandlersList),
-    {ok, ServerOptions} = couch_util:parse_term(
-        couch_config:get("httpd", "server_options", "[]")),
     {ok, SocketOptions} = couch_util:parse_term(
         couch_config:get("httpd", "socket_options", "[]")),
 
@@ -172,71 +182,38 @@ start_link(Name, Options) ->
             Req, DefaultFun, UrlHandlers, DbUrlHandlers, DesignUrlHandlers
         ])
     end,
+    NbAcceptors = list_to_integer(
+            couch_config:get("httpd", "nb_acceptors", "100")
+    ),
 
-    % set mochiweb options
-    FinalOptions = lists:append([Options, ServerOptions, [
-            {loop, Loop},
-            {name, Name},
-            {ip, BindAddress}]]),
+    TransOpts = [{port, Port}|TransOpts0],
+    cowboy:child_spec(Name, NbAcceptors, Transport, TransOpts,
+                      mochicow_protocol, [{loop, Loop}]).
 
-    % launch mochiweb
-    {ok, Pid} = case mochiweb_http:start_link(FinalOptions) of
-        {ok, MochiPid} ->
-            {ok, MochiPid};
-        {error, Reason} ->
-            io:format("Failure to start Mochiweb: ~s~n",[Reason]),
-            throw({error, Reason})
-    end,
+display_uris() ->
+    display_uris([]).
 
+display_uris(_) ->
     Ip = couch_config:get("httpd", "bind_address"),
-    Uri = couch_util:get_uri(Name, Ip),
-    ?LOG_INFO("HTTP API started on ~s~n", [Uri]),
+    lists:foreach(fun(Ref) ->
+                Uri = couch_httpd_util:get_uri(Ref, Ip),
+                lager:info("HTTP API started on ~p~n", [Uri])
+        end, get_listeners()).
 
-    ok = couch_config:register(fun ?MODULE:config_change/2, Pid),
-    {ok, Pid}.
-
-
-stop() ->
-    mochiweb_http:stop(couch_httpd),
-    mochiweb_http:stop(https).
-
-config_change("httpd", "bind_address") ->
-    ?MODULE:stop();
-config_change("httpd", "port") ->
-    ?MODULE:stop();
-config_change("httpd", "default_handler") ->
-    ?MODULE:stop();
-config_change("httpd", "server_options") ->
-    ?MODULE:stop();
-config_change("httpd", "socket_options") ->
-    ?MODULE:stop();
-config_change("httpd", "authentication_handlers") ->
-    set_auth_handlers();
-config_change("httpd_global_handlers", _) ->
-    ?MODULE:stop();
-config_change("httpd_db_handlers", _) ->
-    ?MODULE:stop();
-config_change("ssl", _) ->
-    ?MODULE:stop().
-
-
-display_uris([]) ->
-    Ip = couch_config:get("httpd", "bind_address"),
-    Uris = [couch_util:get_uri(Name, Ip) || Name <- [couch_httpd, https]],
-    [begin
-        case Uri of
-            undefined -> ok;
-            Uri -> io:format("~s~n", [Uri])
-        end
-    end
-    || Uri <- Uris].
+get_listeners() ->
+    case couch_config:get("ssl", "enable", "false") of
+        "true" ->
+            [http, https];
+        _ ->
+            [http]
+    end.
 
 set_auth_handlers() ->
     AuthenticationSrcs = make_fun_spec_strs(
         couch_config:get("httpd", "authentication_handlers", "")),
     AuthHandlers = lists:map(
         fun(A) -> {make_arity_1_fun(A), ?l2b(A)} end, AuthenticationSrcs),
-    ok = application:set_env(couch, auth_handlers, AuthHandlers).
+    ok = application:set_env(couch_httpd, auth_handlers, AuthHandlers).
 
 % SpecStr is a string like "{my_module, my_fun}"
 %  or "{my_module, my_fun, <<"my_arg">>}"
@@ -359,7 +336,7 @@ handle_request_int(MochiReq, DefaultFun,
     },
 
     HandlerFun = couch_util:dict_find(HandlerKey, UrlHandlers, DefaultFun),
-    {ok, AuthHandlers} = application:get_env(couch, auth_handlers),
+    {ok, AuthHandlers} = application:get_env(couch_httpd, auth_handlers),
 
     {ok, Resp} =
     try
