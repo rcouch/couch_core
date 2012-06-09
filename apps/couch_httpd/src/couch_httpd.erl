@@ -14,7 +14,8 @@
 -include_lib("couch/include/couch_db.hrl").
 -include_lib("couch_httpd/include/couch_httpd.hrl").
 
--export([handle_request/5, child_spec/1]).
+-export([handle_request/2, child_spec/1, init/3, get_protocol_options/0,
+        set_auth_handlers/0]).
 
 -export([header_value/2,header_value/3,qs_value/2,qs_value/3,qs/1,qs_json_value/3]).
 -export([path/1,absolute_uri/2,body_length/1]).
@@ -133,7 +134,6 @@ server_options() ->
 
     [{ip, ParsedIp} | ServerOptions].
 
-
 child_spec(http) ->
     Port = list_to_integer(couch_config:get("httpd", "port", "5984")),
     child_spec(http, cowboy_tcp_transport, Port,  server_options());
@@ -143,6 +143,17 @@ child_spec(https) ->
     child_spec(https, cowboy_ssl_transport, Port,  Options).
 
 child_spec(Name, Transport, Port, TransOpts0) ->
+    {ok, ProtoOpts} = get_protocol_options(),
+    set_auth_handlers(),
+    NbAcceptors = list_to_integer(
+            couch_config:get("httpd", "nb_acceptors", "100")
+    ),
+
+    TransOpts = [{port, Port}|TransOpts0],
+    cowboy:child_spec(Name, NbAcceptors, Transport, TransOpts,
+                      cowboy_http_protocol, ProtoOpts).
+
+get_protocol_options() ->
     DefaultSpec = "{couch_httpd_db, handle_request}",
     DefaultFun = make_arity_1_fun(
         couch_config:get("httpd", "default_handler", DefaultSpec)
@@ -166,29 +177,21 @@ child_spec(Name, Transport, Port, TransOpts0) ->
     UrlHandlers = dict:from_list(UrlHandlersList),
     DbUrlHandlers = dict:from_list(DbUrlHandlersList),
     DesignUrlHandlers = dict:from_list(DesignUrlHandlersList),
+
     {ok, SocketOptions} = couch_util:parse_term(
-        couch_config:get("httpd", "socket_options", "[]")),
-
-    set_auth_handlers(),
-
-    Loop = fun(Req)->
-        case SocketOptions of
-        [] ->
-            ok;
-        _ ->
-            ok = mochiweb_socket:setopts(Req:get(socket), SocketOptions)
-        end,
-        apply(?MODULE, handle_request, [
-            Req, DefaultFun, UrlHandlers, DbUrlHandlers, DesignUrlHandlers
-        ])
-    end,
-    NbAcceptors = list_to_integer(
-            couch_config:get("httpd", "nb_acceptors", "100")
+            couch_config:get("httpd", "socket_options", "[]")
     ),
 
-    TransOpts = [{port, Port}|TransOpts0],
-    cowboy:child_spec(Name, NbAcceptors, Transport, TransOpts,
-                      mochicow_protocol, [{loop, Loop}]).
+    Args = [{DefaultFun, UrlHandlers, DbUrlHandlers, DesignUrlHandlers,
+             SocketOptions}],
+    HttpdOptions = [{loop, {couch_httpd, handle_request, Args}}],
+
+    Dispatch = [
+        %% {Host, list({Path, Handler, Opts})}
+            {'_', [{'_', couch_httpd, HttpdOptions}]}
+    ],
+
+    {ok, [{dispatch, Dispatch}]}.
 
 display_uris() ->
     display_uris([]).
@@ -245,13 +248,25 @@ make_arity_3_fun(SpecStr) ->
 make_fun_spec_strs(SpecStr) ->
     re:split(SpecStr, "(?<=})\\s*,\\s*(?={)", [{return, list}]).
 
-handle_request(MochiReq, DefaultFun, UrlHandlers, DbUrlHandlers,
-    DesignUrlHandlers) ->
+init(_Prot, _Req, _Opts) ->
+    {upgrade, protocol, mochicow_upgrade}.
 
-    MochiReq1 = couch_httpd_vhost:dispatch_host(MochiReq),
+handle_request(Req, {DefaultFun, UrlHandlers, DbUrlHandlers,
+                     DesignUrlHandlers, SocketOptions}) ->
 
-    handle_request_int(MochiReq1, DefaultFun,
-                UrlHandlers, DbUrlHandlers, DesignUrlHandlers).
+    case SocketOptions of
+    [] ->
+        ok;
+    _ ->
+        ok = mochiweb_socket:setopts(Req:get(socket), SocketOptions)
+    end,
+
+    %% vhost rewriting
+    Req1 = couch_httpd_vhost:dispatch_host(Req),
+
+    %% finally handle the request
+    handle_request_int(Req1, DefaultFun, UrlHandlers, DbUrlHandlers,
+                       DesignUrlHandlers).
 
 handle_request_int(MochiReq, DefaultFun,
             UrlHandlers, DbUrlHandlers, DesignUrlHandlers) ->
@@ -943,7 +958,7 @@ send_chunked_error(Resp, Error) ->
     last_chunk(Resp).
 
 send_redirect(Req, Path) ->
-     send_response(Req, 301, [{"Location", absolute_uri(Req, Path)}], <<>>).
+    send_response(Req, 301, [{"Location", absolute_uri(Req, Path)}], <<>>).
 
 negotiate_content_type(Req) ->
     case get(jsonp) of
