@@ -120,15 +120,40 @@ handle_design_info_req(#httpd{
     DDoc = couch_httpd_db:couch_doc_open(Db, DesignId, nil, [ejson_body]),
     couch_mrview_http:handle_info_req(Req, Db, DDoc).
 
+maybe_meta(Req) ->
+    Props = (catch couch_httpd:json_body_obj(Req)),
+    case Props of
+        {JsonProps} ->
+            couch_httpd:validate_ctype(Req, "application/json"),
+            case couch_util:get_value(<<"meta">>, JsonProps) of
+                undefined ->
+                    {error, wrong_meta};
+                Meta ->
+                    Meta
+            end;
+        {_,_} ->
+            undefined
+    end.
+
 create_db_req(#httpd{user_ctx=UserCtx}=Req, DbName) ->
     ok = couch_httpd:verify_is_server_admin(Req),
-    case couch_server:create(DbName, [{user_ctx, UserCtx}]) of
-    {ok, Db} ->
-        couch_db:close(Db),
-        DbUrl = absolute_uri(Req, "/" ++ couch_util:url_encode(DbName)),
-        send_json(Req, 201, [{"Location", DbUrl}], {[{ok, true}]});
-    Error ->
-        throw(Error)
+
+    Meta = maybe_meta(Req),
+    case Meta of
+        {error, _} ->
+            send_error(Req, 400, <<"bad_request">>, <<"Bad 'meta' property">>);
+        _ ->
+            case couch_server:create(DbName, [{user_ctx, UserCtx}]) of
+            {ok, Db} ->
+                couch_db:close(Db),
+                DbUrl = absolute_uri(Req, "/" ++ couch_util:url_encode(DbName)),
+
+                couch_meta:maybe_create_meta(DbName, Meta),
+
+                send_json(Req, 201, [{"Location", DbUrl}], {[{ok, true}]});
+            Error ->
+                throw(Error)
+            end
     end.
 
 delete_db_req(#httpd{user_ctx=UserCtx}=Req, DbName) ->
