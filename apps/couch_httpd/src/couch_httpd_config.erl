@@ -6,7 +6,7 @@
 
 -export([set_protocol_options/0, get_protocol_options/1,
          set_protocol_options/2, restart_httpd/0, restart_listener/1,
-         stop_listener/1]).
+         stop_listener/1, ref_to_listener_pid/1]).
 -export([start_link/0, config_change/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -14,22 +14,14 @@
 
 set_protocol_options() ->
     {ok, Options} = couch_httpd:get_protocol_options(),
-    set_protocol_options(http, Options),
-    case couch_config:get("ssl", "enable", "false") of
-        "true" ->
-            set_protocol_options(https, Options);
-        "false" ->
-            ok
-    end.
+    lists:foreach(fun(Binding) ->
+                set_protocol_options(Binding, Options)
+        end, couch_httpd:get_bindings()).
 
 restart_httpd() ->
-    restart_listener(http),
-    case couch_config:get("ssl", "enable", "false") of
-        "true" ->
-            restart_listener(https);
-        _ ->
-            ok
-    end.
+    lists:foreach(fun(Binding) ->
+                restart_listener(Binding)
+        end, couch_httpd:get_bindings()).
 
 restart_listener(Ref) ->
     stop_listener(Ref),
@@ -68,7 +60,6 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init(_) ->
-    lager:info("start httpd config~n", []),
     %% register to config changes
     ok = couch_config:register(fun ?MODULE:config_change/2),
     {ok, nil}.
@@ -110,7 +101,7 @@ config_change("ssl", _) ->
 
 -spec ref_to_listener_pid(any()) -> pid().
 ref_to_listener_pid(Ref) ->
-	Children = supervisor:which_children(couch_httpd_sup),
+	Children = supervisor:which_children(couch_httpd_binding_sup),
 	{_, ListenerSupPid, _, _} = lists:keyfind(
 		{cowboy_listener_sup, Ref}, 1, Children),
 	ListenerSupChildren = supervisor:which_children(ListenerSupPid),

@@ -32,7 +32,7 @@
 -export([send_json/2,send_json/3,send_json/4,last_chunk/1,parse_multipart_request/3]).
 -export([accepted_encodings/1,handle_request_int/5,validate_referer/1,validate_ctype/2]).
 -export([vendor_id/0]).
--export([display_uris/0, display_uris/1, get_listeners/0]).
+-export([display_uris/0, display_uris/1, get_bindings/0]).
 
 ssl_options() ->
     CertFile = couch_config:get("ssl", "cert_file", nil),
@@ -194,22 +194,22 @@ get_protocol_options() ->
     {ok, [{dispatch, Dispatch}]}.
 
 display_uris() ->
-    display_uris([]).
+    display_uris(get_bindings()).
 
-display_uris(_) ->
+display_uris(Bindings) ->
     Ip = couch_config:get("httpd", "bind_address"),
-    lists:foreach(fun(Ref) ->
-                Uri = couch_httpd_util:get_uri(Ref, Ip),
+    lists:foreach(fun(Binding) ->
+                Uri = couch_httpd_util:get_uri(Binding, Ip),
                 lager:info("HTTP API started on ~p~n", [Uri])
-        end, get_listeners()).
+        end, Bindings).
 
-get_listeners() ->
-    case couch_config:get("ssl", "enable", "false") of
-        "true" ->
-            [http, https];
-        _ ->
-            [http]
-    end.
+get_bindings() ->
+    SchemeStr = couch_config:get("httpd", "scheme", "http"),
+    SchemeList = re:split(SchemeStr, "\\s*,\\s*",[{return, list}]),
+
+    lists:foldl(fun(S, Acc) ->
+                [list_to_atom(S) | Acc]
+        end, [], lists:reverse(SchemeList)).
 
 set_auth_handlers() ->
     AuthenticationSrcs = make_fun_spec_strs(

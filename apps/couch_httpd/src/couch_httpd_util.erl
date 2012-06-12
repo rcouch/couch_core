@@ -20,7 +20,7 @@ get_scheme(https) -> "https".
 %%
 -spec get_port(any()) -> inet:port_number().
 get_port(Ref) ->
-    case ref_to_listener_pid(Ref) of
+    case couch_httpd_config:ref_to_listener_pid(Ref) of
         false ->
             undefined;
         ListenerPid ->
@@ -28,14 +28,3 @@ get_port(Ref) ->
     end.
 
 
-%% Internal.
-
--spec ref_to_listener_pid(any()) -> pid().
-ref_to_listener_pid(Ref) ->
-	Children = supervisor:which_children(couch_httpd_sup),
-	{_, ListenerSupPid, _, _} = lists:keyfind(
-		{cowboy_listener_sup, Ref}, 1, Children),
-	ListenerSupChildren = supervisor:which_children(ListenerSupPid),
-	{_, ListenerPid, _, _} = lists:keyfind(
-		cowboy_listener, 1, ListenerSupChildren),
-	ListenerPid.
