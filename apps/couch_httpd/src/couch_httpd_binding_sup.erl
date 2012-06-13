@@ -10,21 +10,19 @@
 % License for the specific language governing permissions and limitations under
 % the License.
 
--module(couch_httpd_sup).
+-module(couch_httpd_binding_sup).
 -behaviour(supervisor).
 
 -export([start_link/0]).
 -export([init/1]).
 
--define(CHILD(I), {I, {I, start_link, []}, permanent, brutal_kill,
-                   worker, [I]}).
--define(SUP(I), {I, {I, start_link, []}, permanent, 5000,
-                 supervisor, [I]}).
-
+-define(CHILD(I), {I, {I, start_link, []}, permanent, brutal_kill, worker, [I]}).
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
+
 init([]) ->
-    VhostSup = ?SUP(couch_httpd_vhosts_sup),
-    Config = ?CHILD(couch_httpd_config),
-    {ok, {{one_for_one, 10, 3600}, [VhostSup, Config]}}.
+    Bindings = lists:map(fun(Binding) ->
+                    couch_httpd:child_spec(Binding)
+            end, couch_httpd:get_bindings()),
+    {ok, {{one_for_one, 10, 3600}, Bindings}}.

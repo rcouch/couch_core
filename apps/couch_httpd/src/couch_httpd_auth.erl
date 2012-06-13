@@ -127,7 +127,8 @@ proxy_auth_user(Req) ->
     XHeaderToken = couch_config:get("couch_httpd_auth", "x_auth_token",
                                 "X-Auth-CouchDB-Token"),
     case header_value(Req, XHeaderUserName) of
-        undefined -> nil;
+        undefined ->
+            nil;
         UserName ->
             Roles = case header_value(Req, XHeaderRoles) of
                 undefined -> [];
