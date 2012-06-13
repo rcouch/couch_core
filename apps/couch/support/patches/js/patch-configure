@@ -3487,11 +3487,11 @@
    esac
  else
    case "$target_cpu" in
-+    armv6)
++    armv6*)
 +      if test "$GNU_CC"; then
 +        CFLAGS="$CFLAGS -march=armv6j -mthumb-interwork -msoft-float"
-+        CXXFLAGS="$CXXFLAGS -march=armv§j -mthumb-interwork -msoft-float"
-+        ASFLAGS="$ASFLAGS -march=armv§j -mthumb-interwork -msoft-float"
++        CXXFLAGS="$CXXFLAGS -march=armv6j -mthumb-interwork -msoft-float"
++        ASFLAGS="$ASFLAGS -march=armv6j -mthumb-interwork -msoft-float"
 +      fi
 +      ;;
      arm*)
