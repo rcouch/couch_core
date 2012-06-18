@@ -18,6 +18,7 @@
     idx_name,
     language,
     design_opts=[],
+    include_deleted=false,
     lib,
     views,
     id_btree=nil,

@@ -93,6 +93,8 @@ ddoc_to_mrst(DbName, #doc{id=Id, body={Fields}}) ->
     {DesignOpts} = couch_util:get_value(<<"options">>, Fields, {[]}),
     {RawViews} = couch_util:get_value(<<"views">>, Fields, {[]}),
     Lib = couch_util:get_value(<<"lib">>, RawViews, {[]}),
+    IncludeDeleted = couch_util:get_value(<<"include_deleted">>, DesignOpts,
+        false),
 
     IdxState = #mrst{
         db_name=DbName,
@@ -100,7 +102,8 @@ ddoc_to_mrst(DbName, #doc{id=Id, body={Fields}}) ->
         lib=Lib,
         views=Views,
         language=Language,
-        design_opts=DesignOpts
+        design_opts=DesignOpts,
+        include_deleted=IncludeDeleted
     },
     SigInfo = {Views, Language, DesignOpts, couch_index_util:sort_lib(Lib)},
     {ok, IdxState#mrst{sig=couch_util:md5(term_to_binary(SigInfo))}}.
@@ -530,7 +533,7 @@ delete_index_file(DbName, Sig) ->
 
 delete_compaction_file(DbName, Sig) ->
     delete_file(compaction_file(DbName, Sig)).
-    
+
 
 delete_file(FName) ->
     case filelib:is_file(FName) of
