@@ -152,8 +152,12 @@ extract_view(Lang, #mrargs{view_type=red}=Args, Name, [View | Rest]) ->
 
 view_sig(Db, State, View, #mrargs{include_docs=true}=Args) ->
     BaseSig = view_sig(Db, State, View, Args#mrargs{include_docs=false}),
-    UpdateSeq = couch_db:get_update_seq(Db),
-    PurgeSeq = couch_db:get_purge_seq(Db),
+    {UpdateSeq, PurgeSeq} = couch_util:with_db(Db, fun(WDb) ->
+        UpdateSeq0 = couch_db:get_update_seq(WDb),
+        PurgeSeq0 = couch_db:get_purge_seq(WDb),
+        {UpdateSeq0, PurgeSeq0}
+    end),
+
     Bin = term_to_binary({BaseSig, UpdateSeq, PurgeSeq}),
     couch_index_util:hexsig(couch_util:md5(Bin));
 view_sig(Db, State, {_Nth, _Lang, View}, Args) ->
