@@ -18,13 +18,12 @@
 -export([compact/3, swap_compacted/2]).
 
 -record(acc, {
-   btree = nil,
-   last_id = nil,
-   kvs = [],
-   kvs_size = 0,
-   changes = 0,
-   total_changes
-}).
+        btree = nil,
+        last_id = nil,
+        kvs = [],
+        kvs_size = 0,
+        changes = 0,
+        total_changes}).
 
 
 compact(_Db, State, Opts) ->
@@ -37,9 +36,11 @@ compact(State) ->
     #mrst{
         db_name=DbName,
         idx_name=IdxName,
+        seq_indexed=SeqIndexed,
         sig=Sig,
         update_seq=Seq,
         id_btree=IdBtree,
+        seq_btree=SeqBtree,
         views=Views
     } = State,
 
@@ -51,16 +52,25 @@ compact(State) ->
 
     #mrst{
         id_btree = EmptyIdBtree,
+        seq_btree = EmptySeqBtree,
         views = EmptyViews
     } = EmptyState,
 
     {ok, Count} = couch_btree:full_reduce(IdBtree),
-    TotalChanges = lists:foldl(
+    TotalChanges0 = lists:foldl(
         fun(View, Acc) ->
             {ok, Kvs} = couch_mrview_util:get_row_count(View),
             Acc + Kvs
         end,
         Count, Views),
+
+
+    TotalChanges = case SeqIndexed of
+        true ->
+            TotalChanges0 * 2;
+        _ ->
+            TotalChanges0
+    end,
     couch_task_status:add_task([
         {type, view_compaction},
         {database, DbName},
@@ -74,7 +84,8 @@ compact(State) ->
     BufferSize = list_to_integer(BufferSize0),
 
     FoldFun = fun({DocId, _} = KV, Acc) ->
-        #acc{btree = Bt, kvs = Kvs, kvs_size = KvsSize, last_id = LastId} = Acc,
+        #acc{btree = Bt, kvs = Kvs, kvs_size = KvsSize,
+             last_id = LastId} = Acc,
         if DocId =:= LastId ->
             % COUCHDB-999 regression test
             ?LOG_ERROR("Duplicate docid `~s` detected in view group `~s`"
@@ -88,30 +99,63 @@ compact(State) ->
             true ->
                 {ok, Bt2} = couch_btree:add(Bt, lists:reverse([KV | Kvs])),
                 Acc2 = update_task(Acc, 1 + length(Kvs)),
-                {ok, Acc2#acc{
-                    btree = Bt2, kvs = [], kvs_size = 0, last_id = DocId}};
+                {ok, Acc2#acc{btree = Bt2, kvs = [], kvs_size = 0,
+                              last_id = DocId}};
             _ ->
-                {ok, Acc#acc{
-                    kvs = [KV | Kvs], kvs_size = KvsSize2, last_id = DocId}}
+                {ok, Acc#acc{kvs = [KV | Kvs], kvs_size = KvsSize2,
+                             last_id = DocId}}
         end
     end,
 
+    %% compact view group byte
     InitAcc = #acc{total_changes = TotalChanges, btree = EmptyIdBtree},
     {ok, _, FinalAcc} = couch_btree:foldl(IdBtree, FoldFun, InitAcc),
     #acc{btree = Bt3, kvs = Uncopied} = FinalAcc,
-    {ok, NewIdBtree} = couch_btree:add(Bt3, lists:reverse(Uncopied)),
+    Uncopied1 = lists:reverse(Uncopied),
+    {ok, NewIdBtree} = couch_btree:add(Bt3, Uncopied1),
     FinalAcc2 = update_task(FinalAcc, length(Uncopied)),
 
-    {NewViews, _} = lists:mapfoldl(fun({View, EmptyView}, Acc) ->
+    {NewViews, FinalAcc3} =  lists:mapfoldl(fun({View, EmptyView}, Acc) ->
         compact_view(View, EmptyView, BufferSize, Acc)
     end, FinalAcc2, lists:zip(Views, EmptyViews)),
+
+    %% compact main seq btree
+    NewSeqBtree = compact_seq_btree(SeqBtree, EmptySeqBtree, BufferSize,
+                                    FinalAcc3),
 
     unlink(EmptyState#mrst.fd),
     {ok, EmptyState#mrst{
         id_btree=NewIdBtree,
+        seq_btree=NewSeqBtree,
         views=NewViews,
         update_seq=Seq
     }}.
+
+compact_seq_btree(nil, _, _, _) ->
+    nil;
+compact_seq_btree(SeqBtree, EmptySeqBtree, BufferSize, Acc0) ->
+    FoldFun = fun(KV, Acc) ->
+        #acc{btree = Bt, kvs = Kvs, kvs_size = KvsSize} = Acc,
+
+        KvsSize2 = KvsSize + ?term_size(KV),
+        case KvsSize2 >= BufferSize of
+            true ->
+                ToAdd = lists:reverse([KV | Kvs]),
+                {ok, Bt2} = couch_btree:add(Bt, ToAdd),
+                Acc2 = update_task(Acc, 1 + length(Kvs)),
+                {ok, Acc2#acc{btree = Bt2,  kvs = [], kvs_size = 0}};
+            _ ->
+                {ok, Acc#acc{kvs = [KV | Kvs], kvs_size = KvsSize2}}
+        end
+    end,
+
+    InitAcc = Acc0#acc{kvs=[], kvs_size=0, btree = EmptySeqBtree},
+    {ok, _, FinalAcc} = couch_btree:foldl(SeqBtree, FoldFun, InitAcc),
+    #acc{btree = Bt3, kvs = Uncopied} = FinalAcc,
+    Uncopied1 = lists:reverse(Uncopied),
+    {ok, NewSeqBtree} = couch_btree:add(Bt3, Uncopied1),
+    update_task(FinalAcc, length(Uncopied)),
+    NewSeqBtree.
 
 
 recompact(State) ->
@@ -139,12 +183,28 @@ compact_view(View, EmptyView, BufferSize, Acc0) ->
         end
     end,
 
+    %% compact main view btree
     InitAcc = Acc0#acc{kvs = [], kvs_size = 0, btree = EmptyView#mrview.btree},
     {ok, _, FinalAcc} = couch_btree:foldl(View#mrview.btree, Fun, InitAcc),
     #acc{btree = Bt3, kvs = Uncopied} = FinalAcc,
     {ok, NewBt} = couch_btree:add(Bt3, lists:reverse(Uncopied)),
     FinalAcc2 = update_task(FinalAcc, length(Uncopied)),
-    {EmptyView#mrview{btree=NewBt}, FinalAcc2}.
+
+    %% compact view seq btree
+    SInitAcc = FinalAcc2#acc{kvs = [], kvs_size = 0,
+                             btree = EmptyView#mrview.seq_btree},
+    {NewSBt, FinalAcc3} = case View#mrview.seq_btree of
+        nil ->
+            {nil, FinalAcc2};
+        SeqBtree ->
+            {ok, _, SFinalAcc} = couch_btree:foldl(SeqBtree, Fun, SInitAcc),
+            #acc{btree = SBt3, kvs = SUncopied} = SFinalAcc,
+            {ok, NewSBt1} = couch_btree:add(SBt3, lists:reverse(SUncopied)),
+            SFinalAcc1 = update_task(SFinalAcc, length(SUncopied)),
+            {NewSBt1, SFinalAcc1}
+    end,
+
+    {EmptyView#mrview{btree=NewBt, seq_btree=NewSBt}, FinalAcc3}.
 
 
 update_task(#acc{changes = Changes, total_changes = Total} = Acc, ChangesInc) ->
@@ -170,5 +230,5 @@ swap_compacted(OldState, NewState) ->
     unlink(OldState#mrst.fd),
     couch_ref_counter:drop(OldState#mrst.refc),
     {ok, NewRefCounter} = couch_ref_counter:start([NewState#mrst.fd]),
-    
+
     {ok, NewState#mrst{refc=NewRefCounter}}.

@@ -14,6 +14,7 @@
 
 -export([query_all_docs/2, query_all_docs/4]).
 -export([query_view/3, query_view/4, query_view/6]).
+-export([view_changes_since/5, view_changes_since/6, view_changes_since/7]).
 -export([get_info/2]).
 -export([compact/2, compact/3, cancel_compaction/2]).
 -export([cleanup/1]).
@@ -72,7 +73,8 @@ query_view(Db, DDoc, VName, Args) ->
 query_view(Db, DDoc, VName, Args, Callback, Acc) when is_list(Args) ->
     query_view(Db, DDoc, VName, to_mrargs(Args), Callback, Acc);
 query_view(Db, DDoc, VName, Args0, Callback, Acc0) ->
-    {ok, VInfo, Sig, Args} = couch_mrview_util:get_view(Db, DDoc, VName, Args0),
+    {ok, VInfo, _State, Sig, Args} = couch_mrview_util:get_view(Db, DDoc,
+                                                        VName, Args0),
     {ok, Acc1} = case Args#mrargs.preflight_fun of
         PFFun when is_function(PFFun, 2) -> PFFun(Sig, Acc0);
         _ -> {ok, Acc0}
@@ -85,6 +87,69 @@ query_view(Db, {Type, View}, Args, Callback, Acc) ->
         map -> map_fold(Db, View, Args, Callback, Acc);
         red -> red_fold(Db, View, Args, Callback, Acc)
     end.
+
+view_changes_since(Db, DDoc, VName, StartSeq, Callback) ->
+    view_changes_since(Db, DDoc, VName, StartSeq, Callback, #mrargs{}, []).
+
+view_changes_since(Db, DDoc, VName, StartSeq, Callback, Args) ->
+    view_changes_since(Db, DDoc, VName, StartSeq, Callback, Args, []).
+
+view_changes_since(Db, DDoc, VName, StartSeq, Callback, Args, Acc)
+        when is_list(Args) ->
+    view_changes_since(Db, DDoc, VName, StartSeq, Callback,
+                       to_mrargs(Args), Acc);
+view_changes_since(Db, DDoc, VName, StartSeq, Callback,
+                   #mrargs{direction=Dir}=Args0, Acc) ->
+    EndSeq = case Dir of
+        fwd -> 16#10000000;
+        rev -> 0
+    end,
+    {ok, VInfo,  State, _Sig, Args} = couch_mrview_util:get_view(Db, DDoc,
+                                                        VName, Args0),
+
+    {_Type, View} = VInfo,
+    case View#mrview.seq_indexed of
+        true ->
+            Acc0 = {Dir, StartSeq, Acc},
+            WrapperFun = fun
+                ({{_ViewId, Seq}, {DocId, Key, Val}}, _Reds, {_, _, Acc2}) ->
+                    {ok, Acc3} = Callback({{Key, Seq}, {DocId, Val}}, Acc2),
+                    {ok, {fwd, Seq, Acc3}};
+                ({{_Key, Seq}, _DocId}=KV, _Reds, {fwd, LastSeq, Acc2})
+                        when Seq > LastSeq, Seq =< EndSeq ->
+                    {ok, Acc3} = Callback(KV, Acc2),
+                    {ok, {fwd, Seq, Acc3}};
+                ({{_Key, Seq}, _DocId}=KV, _Reds, {D, LastSeq, Acc2})
+                        when Seq < LastSeq, Seq >= EndSeq ->
+                    {ok, Acc3} = Callback(KV, Acc2),
+                    {ok, {D, Seq, Acc3}};
+                (_, _, Acc2) ->
+                    {ok, Acc2}
+            end,
+            {Btree, Opts} = case {Args#mrargs.start_key, Args#mrargs.end_key} of
+                {undefined, undefined} ->
+                    #mrst{seq_btree=SeqBtree} = State,
+                    #mrview{id_num=Id}=View,
+                    {SeqBtree, [{start_key, {Id, StartSeq+1}},
+                                {end_key, {Id, EndSeq}}]};
+                {SK, undefined} ->
+                    {View#mrview.seq_btree, [{start_key, {SK, StartSeq+1}},
+                                             {end_key, {SK, EndSeq}}]};
+                {undefined, EK} ->
+                    {View#mrview.seq_btree, [{start_key, {EK, StartSeq+1}},
+                                             {end_key, {EK, EndSeq}}]};
+                {SK, EK} ->
+                    {View#mrview.seq_btree, [{start_key, {SK, StartSeq+1}},
+                                             {end_key, {EK, EndSeq}}]}
+            end,
+
+            {ok, _R, {_, _, AccOut}} = couch_btree:fold(Btree, WrapperFun,
+                                                        Acc0, Opts),
+            {ok, AccOut};
+        _ ->
+            {error, seqs_not_indexed}
+    end.
+
 
 
 get_info(Db, DDoc) ->

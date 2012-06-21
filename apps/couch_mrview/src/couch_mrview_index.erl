@@ -40,10 +40,13 @@ get(Property, State) ->
             LocalSeq = couch_util:get_value(<<"local_seq">>, Opts, false),
             IncludeDeleted = couch_util:get_value(<<"include_deleted">>,
                                                   Opts, false),
+            SeqIndexed = couch_util:get_value(<<"seq_indexed">>,
+                                                  Opts, false),
 
             if IncDesign -> [include_design]; true -> [] end
                 ++ if LocalSeq -> [local_seq]; true -> [] end
-                ++ if IncludeDeleted -> [include_deleted]; true -> [] end;
+                ++ if IncludeDeleted -> [include_deleted]; true -> [] end
+                ++ if SeqIndexed -> [seq_indexed]; true -> [] end;
         info ->
             #mrst{
                 fd = Fd,

@@ -24,6 +24,7 @@
 -export([calculate_data_size/2]).
 -export([validate_args/1]).
 -export([maybe_load_doc/3, maybe_load_doc/4]).
+-export([to_seqkvs/2]).
 
 -define(MOD, couch_mrview_index).
 
@@ -56,10 +57,14 @@ get_view(Db, DDoc, ViewName, Args0) ->
     {Type, View, Args3} = extract_view(Lang, Args2, ViewName, Views),
     check_range(Args3, view_cmp(View)),
     Sig = view_sig(Db, State, View, Args3),
-    {ok, {Type, View}, Sig, Args3}.
+    {ok, {Type, View}, State, Sig, Args3}.
 
 
 ddoc_to_mrst(DbName, #doc{id=Id, body={Fields}}) ->
+    {DesignOpts} = couch_util:get_value(<<"options">>, Fields, {[]}),
+    SeqIndexed = couch_util:get_value(<<"seq_indexed">>, DesignOpts,
+                                      false),
+
     MakeDict = fun({Name, {MRFuns}}, DictBySrcAcc) ->
         case couch_util:get_value(<<"map">>, MRFuns) of
             MapSrc when is_binary(MapSrc) ->
@@ -77,7 +82,7 @@ ddoc_to_mrst(DbName, #doc{id=Id, body={Fields}}) ->
                         RedFuns = [{Name, RedSrc} | View#mrview.reduce_funs],
                         {View#mrview.map_names, RedFuns}
                 end,
-                View2 = View#mrview{map_names=MapNames, reduce_funs=RedSrcs},
+                View2 = View#mrview{map_names=MapNames,reduce_funs=RedSrcs},
                 dict:store({MapSrc, ViewOpts}, View2, DictBySrcAcc);
             undefined ->
                 DictBySrcAcc
@@ -86,11 +91,12 @@ ddoc_to_mrst(DbName, #doc{id=Id, body={Fields}}) ->
     {RawViews} = couch_util:get_value(<<"views">>, Fields, {[]}),
     BySrc = lists:foldl(MakeDict, dict:new(), RawViews),
 
-    NumViews = fun({_, View}, N) -> {View#mrview{id_num=N}, N+1} end,
+    NumViews = fun({_, View}, N) ->
+            {View#mrview{id_num=N, seq_indexed=SeqIndexed}, N+1}
+    end,
     {Views, _} = lists:mapfoldl(NumViews, 0, lists:sort(dict:to_list(BySrc))),
 
     Language = couch_util:get_value(<<"language">>, Fields, <<"javascript">>),
-    {DesignOpts} = couch_util:get_value(<<"options">>, Fields, {[]}),
     {RawViews} = couch_util:get_value(<<"views">>, Fields, {[]}),
     Lib = couch_util:get_value(<<"lib">>, RawViews, {[]}),
     IncludeDeleted = couch_util:get_value(<<"include_deleted">>, DesignOpts,
@@ -103,7 +109,8 @@ ddoc_to_mrst(DbName, #doc{id=Id, body={Fields}}) ->
         views=Views,
         language=Language,
         design_opts=DesignOpts,
-        include_deleted=IncludeDeleted
+        include_deleted=IncludeDeleted,
+        seq_indexed=SeqIndexed
     },
     SigInfo = {Views, Language, DesignOpts, couch_index_util:sort_lib(Lib)},
     {ok, IdxState#mrst{sig=couch_util:md5(term_to_binary(SigInfo))}}.
@@ -155,11 +162,13 @@ view_sig(_Db, State, View, Args0) ->
     Sig = State#mrst.sig,
     UpdateSeq = View#mrview.update_seq,
     PurgeSeq = View#mrview.purge_seq,
+    SeqIndexed = View#mrview.seq_indexed,
+
     Args = Args0#mrargs{
         preflight_fun=undefined,
         extra=[]
     },
-    Bin = term_to_binary({Sig, UpdateSeq, PurgeSeq, Args}),
+    Bin = term_to_binary({Sig, UpdateSeq, PurgeSeq, SeqIndexed, Args}),
     couch_index_util:hexsig(couch_util:md5(Bin)).
 
 
@@ -168,21 +177,23 @@ init_state(Db, Fd, #mrst{views=Views}=State, nil) ->
         seq=0,
         purge_seq=couch_db:get_purge_seq(Db),
         id_btree_state=nil,
-        view_states=[{nil, 0, 0} || _ <- Views]
+        seq_btree_state=nil,
+        view_states=[{nil, nil, 0, 0} || _ <- Views]
     },
     init_state(Db, Fd, State, Header);
 init_state(Db, Fd, State, Header) ->
-    #mrst{language=Lang, views=Views} = State,
+    #mrst{language=Lang, seq_indexed=SeqIndexed, views=Views} = State,
     #mrheader{
         seq=Seq,
         purge_seq=PurgeSeq,
         id_btree_state=IdBtreeState,
+        seq_btree_state=SeqBtreeState,
         view_states=ViewStates
     } = Header,
 
     StateUpdate = fun
-        ({_, _, _}=St) -> St;
-        (St) -> {St, 0, 0}
+        ({_, _, _, _}=St) -> St;
+        (St) -> {St, nil, 0, 0}
     end,
     ViewStates2 = lists:map(StateUpdate, ViewStates),
 
@@ -194,6 +205,15 @@ init_state(Db, Fd, State, Header) ->
     IdBtOpts = [{reduce, IdReduce}, {compression, couch_db:compression(Db)}],
     {ok, IdBtree} = couch_btree:open(IdBtreeState, Fd, IdBtOpts),
 
+    {ok, SeqBtree} = case SeqIndexed of
+        true ->
+            SeqBtOpts = [{compression, couch_db:compression(Db)}],
+            couch_btree:open(SeqBtreeState, Fd, SeqBtOpts);
+        _ ->
+            {ok, nil}
+    end,
+
+
     OpenViewFun = fun(St, View) -> open_view(Db, Fd, Lang, St, View) end,
     Views2 = lists:zipwith(OpenViewFun, ViewStates2, Views),
 
@@ -202,11 +222,12 @@ init_state(Db, Fd, State, Header) ->
         update_seq=Seq,
         purge_seq=PurgeSeq,
         id_btree=IdBtree,
+        seq_btree=SeqBtree,
         views=Views2
     }.
 
 
-open_view(Db, Fd, Lang, {BTState, USeq, PSeq}, View) ->
+open_view(Db, Fd, Lang, {BTState, SBTState, USeq, PSeq}, View) ->
     FunSrcs = [FunSrc || {_Name, FunSrc} <- View#mrview.reduce_funs],
     ReduceFun =
         fun(reduce, KVs) ->
@@ -231,7 +252,14 @@ open_view(Db, Fd, Lang, {BTState, USeq, PSeq}, View) ->
         {compression, couch_db:compression(Db)}
     ],
     {ok, Btree} = couch_btree:open(BTState, Fd, ViewBtOpts),
-    View#mrview{btree=Btree, update_seq=USeq, purge_seq=PSeq}.
+    {ok, SeqBtree} = case View#mrview.seq_indexed of
+        true ->
+            couch_btree:open(SBTState, Fd, ViewBtOpts);
+        _ ->
+            {ok, nil}
+    end,
+    View#mrview{btree=Btree, seq_btree=SeqBtree, update_seq=USeq,
+                purge_seq=PSeq}.
 
 
 temp_view_to_ddoc({Props}) ->
@@ -485,21 +513,35 @@ make_header(State) ->
         update_seq=Seq,
         purge_seq=PurgeSeq,
         id_btree=IdBtree,
+        seq_btree=SeqBtree,
         views=Views
     } = State,
-    ViewStates = [
-        {
+
+    ViewStates = lists:foldr(fun(V, Acc) ->
+        SBTState = case V#mrview.seq_indexed of
+            true ->
+                couch_btree:get_state(V#mrview.seq_btree);
+            _ ->
+                nil
+        end,
+        [{
             couch_btree:get_state(V#mrview.btree),
+            SBTState,
             V#mrview.update_seq,
             V#mrview.purge_seq
-        }
-        ||
-        V <- Views
-    ],
+         } | Acc]
+    end, [], Views),
+
+    SeqBtreeState = case SeqBtree of
+        nil -> nil;
+        _ -> couch_btree:get_state(SeqBtree)
+    end,
+
     #mrheader{
         seq=Seq,
         purge_seq=PurgeSeq,
         id_btree_state=couch_btree:get_state(IdBtree),
+        seq_btree_state=SeqBtreeState,
         view_states=ViewStates
     }.
 
@@ -557,7 +599,7 @@ reset_state(State) ->
         qserver=nil,
         update_seq=0,
         id_btree=nil,
-        views=[View#mrview{btree=nil} || View <- State#mrst.views]
+        views=[View#mrview{btree=nil, seq_btree=nil} || View <- State#mrst.views]
     }.
 
 
@@ -630,8 +672,12 @@ reverse_key_default(Key) -> Key.
 
 
 calculate_data_size(IdBt, Views) ->
-    SumFun = fun(#mrview{btree=Bt}, Acc) ->
-        sum_btree_sizes(Acc, couch_btree:size(Bt))
+    SumFun = fun
+        (#mrview{btree=Bt, seq_btree=nil}, Acc) ->
+            sum_btree_sizes(Acc, couch_btree:size(Bt));
+        (#mrview{btree=Bt, seq_btree=SBt}, Acc) ->
+            Acc1 = sum_btree_sizes(Acc, couch_btree:size(Bt)),
+            sum_btree_sizes(Acc1, couch_btree:size(SBt))
     end,
     Size = lists:foldl(SumFun, couch_btree:size(IdBt), Views),
     {ok, Size}.
@@ -709,3 +755,16 @@ index_of(Key, [_ | Rest], Idx) ->
 
 mrverror(Mesg) ->
     throw({query_parse_error, Mesg}).
+
+
+to_seqkvs([], Acc) ->
+    lists:reverse(Acc);
+to_seqkvs([{not_found, _} | Rest], Acc) ->
+    to_seqkvs(Rest, Acc);
+to_seqkvs([{_Id, {_Seq, []}} | Rest], Acc) ->
+    to_seqkvs(Rest, Acc);
+to_seqkvs([{Id, {Seq, Keys}} | Rest], Acc0) ->
+    Acc1 = lists:foldl(fun({ViewId, _}, Acc) ->
+                [{{ViewId, Seq}, Id} | Acc]
+        end, Acc0, Keys),
+    to_seqkvs(Rest, Acc1).

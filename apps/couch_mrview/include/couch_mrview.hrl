@@ -19,9 +19,11 @@
     language,
     design_opts=[],
     include_deleted=false,
+    seq_indexed=false,
     lib,
     views,
     id_btree=nil,
+    seq_btree=nil,
     update_seq=0,
     purge_seq=0,
 
@@ -36,12 +38,14 @@
 
 -record(mrview, {
     id_num,
+    seq_indexed=false,
     update_seq=0,
     purge_seq=0,
     map_names=[],
     reduce_funs=[],
     def,
     btree=nil,
+    seq_btree=nil,
     options=[]
 }).
 
@@ -50,6 +54,7 @@
     seq=0,
     purge_seq=0,
     id_btree_state=nil,
+    seq_btree_state=nil,
     view_states=nil
 }).
 
