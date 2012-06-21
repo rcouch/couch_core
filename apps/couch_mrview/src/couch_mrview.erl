@@ -17,6 +17,7 @@
 -export([view_changes_since/5, view_changes_since/6, view_changes_since/7]).
 -export([get_info/2]).
 -export([refresh/2]).
+-export([subscribe/2, unsubscribe/2, notify/3]).
 -export([compact/2, compact/3, cancel_compaction/2]).
 -export([cleanup/1]).
 
@@ -175,9 +176,17 @@ refresh(Db, DDoc) ->
             {error, Error}
     end.
 
+subscribe(DbName, DDoc) ->
+    couch_mrview_events:subscribe(DbName, DDoc).
+
+unsubscribe(DbName, DDoc) ->
+    couch_mrview_events:unsubscribe(DbName, DDoc).
+
+notify(DbName, DDoc, Event) ->
+    couch_mrview_events:notify(DbName, DDoc, Event).
+
 compact(Db, DDoc) ->
     compact(Db, DDoc, []).
-
 
 compact(Db, DDoc, Opts) ->
     {ok, Pid} = couch_index_server:get_index(couch_mrview_index, Db, DDoc),
