@@ -10,11 +10,18 @@
 % License for the specific language governing permissions and limitations under
 % the License.
 
-{application, couch_mrview, [
-    {description, "CouchDB Map/Reduce Views"},
-    {vsn, "0.2"},
-    {modules, []},
-    {registered, [couch_mrview_indexer_sup]},
-    {mod, {couch_mrview_app, []}},
-    {applications, [kernel, stdlib, couch_index]}
-]}.
+-module(couch_mrview_app).
+
+-behaviour(application).
+
+-include_lib("couch/include/couch_db.hrl").
+
+-export([start/2, stop/1]).
+
+start(_Type, _Args) ->
+    couch_util:start_app_deps(couch_mrview),
+    couch_mrview_sup:start_link().
+
+
+stop(_) ->
+    ok.

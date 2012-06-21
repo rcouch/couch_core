@@ -10,11 +10,21 @@
 % License for the specific language governing permissions and limitations under
 % the License.
 
-{application, couch_mrview, [
-    {description, "CouchDB Map/Reduce Views"},
-    {vsn, "0.2"},
-    {modules, []},
-    {registered, [couch_mrview_indexer_sup]},
-    {mod, {couch_mrview_app, []}},
-    {applications, [kernel, stdlib, couch_index]}
-]}.
+-module(couch_mrview_sup).
+-behaviour(supervisor).
+
+-export([start_link/0]).
+-export([init/1]).
+
+-define(CHILD(I, T), {I, {I, start_link, []}, permanent, 5000, T, [I]}).
+
+
+start_link() ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+
+init([]) ->
+    IndexerSup = ?CHILD(couch_mrview_indexer_sup, supervisor),
+    Events = ?CHILD(couch_mrview_events, worker),
+    {ok, {{one_for_one, 10, 3600}, [IndexerSup, Events]}}.
+

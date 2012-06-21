@@ -209,7 +209,7 @@ write_results(Parent, #mrst{db_name=DbName, idx_name=IdxName}=State) ->
             send_partial(NewState#mrst.partial_resp_pid, NewState),
 
             % notifify the view update
-            couch_db_update_notifier:notify({view_updated, {DbName, IdxName}}),
+            couch_mrview_events:notify(DbName, IdxName, index_update),
 
             write_results(Parent, NewState)
     end.
