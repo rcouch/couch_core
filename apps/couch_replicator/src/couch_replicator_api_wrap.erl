@@ -21,13 +21,16 @@
 -include_lib("couch/include/couch_db.hrl").
 -include_lib("couch_httpd/include/couch_httpd.hrl").
 -include_lib("couch_changes/include/couch_changes.hrl").
+-include_lib("couch_mrview/include/couch_mrview.hrl").
 -include("couch_replicator_api_wrap.hrl").
+-include("couch_replicator.hrl").
 
 -export([
     db_open/2,
     db_open/3,
     db_close/1,
     get_db_info/1,
+    get_view_seq/2,
     update_doc/3,
     update_doc/4,
     update_docs/3,
@@ -119,6 +122,21 @@ get_db_info(#db{name = DbName, user_ctx = UserCtx}) ->
     couch_db:close(Db),
     {ok, [{couch_util:to_binary(K), V} || {K, V} <- Info]}.
 
+
+get_view_seq(#httpdb{} = Db, Rep) ->
+    #rep{view = {DDoc, VName},
+         options = Options} = Rep,
+    Path = binary_to_list(DDoc) ++  "/_view" ++ binary_to_list(VName) ++
+           "/_last_seq",
+    send_req(Db, [{path, Path}, {qs, view_qargs(Options)}],
+        fun(200, _, {Props}) ->
+                {ok, get_value(<<"last_seq">>, Props)}
+        end);
+get_view_seq(Db, Rep) ->
+    #rep{view = {DDoc, VName},
+         options = Options} = Rep,
+    couch_mrview:get_last_seq(Db#db.name, DDoc, VName,
+                              view_mrargs(Options)).
 
 ensure_full_commit(#httpdb{} = Db) ->
     send_req(
@@ -384,12 +402,43 @@ changes_since(Db, Style, StartSeq, UserFun, Options) ->
 
 
 % internal functions
+%
+view_qargs(Options) ->
+    ViewFields0 = [atom_to_list(F) || F <- record_info(fields,  mrargs)],
+    ViewFields = ["key" | ViewFields0],
+    {Params} = get_value(query_params, Options, {[]}),
+    lists:foldl(fun({K, V}, Acc) ->
+                Ks = couch_util:to_list(K),
+                case lists:member(Ks, ViewFields) of
+                    true ->
+                        [{Ks, ?JSON_ENCODE(V)} | Acc];
+                    false ->
+                        Acc
+                end
+        end, [], Params).
+
+view_mrargs(Options) ->
+    ViewFields = [key | record_info(fields,  mrargs)],
+    {Params} = get_value(query_params, Options, {[]}),
+    lists:foldl(fun({K, V}, Acc) ->
+                K1 = list_to_atom(couch_util:to_list(K)),
+                case lists:member(K1, ViewFields) of
+                    true ->
+                        [{K1, V} | Acc];
+                    false ->
+                        Acc
+                end
+        end, [], Params).
+
 
 maybe_add_changes_filter_q_args(BaseQS, Options) ->
     case get_value(filter, Options) of
     undefined ->
         BaseQS;
     FilterName ->
+        ViewFields0 = [atom_to_list(F) || F <- record_info(fields,  mrargs)],
+        ViewFields = ["key" | ViewFields0],
+
         {Params} = get_value(query_params, Options, {[]}),
         [{"filter", ?b2l(FilterName)} | lists:foldl(
             fun({K, V}, QSAcc) ->
@@ -397,6 +446,13 @@ maybe_add_changes_filter_q_args(BaseQS, Options) ->
                 case lists:keymember(Ks, 1, QSAcc) of
                 true ->
                     QSAcc;
+                false when FilterName =:= <<"_view">> ->
+                    V1 = case lists:member(Ks, ViewFields) of
+                        true ->
+                            ?JSON_ENCODE(V);
+                        false -> couch_util:to_list(V)
+                    end,
+                    [{Ks, V1} | QSAcc];
                 false ->
                     [{Ks, couch_util:to_list(V)} | QSAcc]
                 end

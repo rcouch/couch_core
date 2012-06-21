@@ -42,6 +42,7 @@
 
 -record(rep_state, {
     rep_details,
+    type = db,
     source_name,
     target_name,
     source,
@@ -526,7 +527,8 @@ cancel_timer(#rep_state{timer = Timer} = State) ->
 init_state(Rep) ->
     #rep{
         source = Src, target = Tgt,
-        options = Options, user_ctx = UserCtx
+        options = Options, user_ctx = UserCtx,
+        type = Type
     } = Rep,
     {ok, Source} = couch_replicator_api_wrap:db_open(Src, [{user_ctx, UserCtx}]),
     {ok, Target} = couch_replicator_api_wrap:db_open(Tgt, [{user_ctx, UserCtx}],
@@ -543,6 +545,7 @@ init_state(Rep) ->
     #doc{body={CheckpointHistory}} = SourceLog,
     State = #rep_state{
         rep_details = Rep,
+        type = Type,
         source_name = couch_replicator_api_wrap:db_uri(Source),
         target_name = couch_replicator_api_wrap:db_uri(Target),
         source = Source,
@@ -905,7 +908,20 @@ db_monitor(#db{} = Db) ->
 db_monitor(_HttpDb) ->
     nil.
 
+source_cur_seq(#rep_state{source = #httpdb{} = Db, type = view} = State) ->
 
+    #rep_state{rep_details = Rep, source_seq = Seq} = State,
+    case (catch couch_replicator_api_wrap:get_view_seq(Db#httpdb{retries = 3},
+                                                       Rep)) of
+        {ok, {Info}} ->
+            get_value(<<"last_seq">>, Info, Seq);
+        _ ->
+            Seq
+    end;
+source_cur_seq(#rep_state{source = Db, type = view} = State) ->
+    #rep_state{rep_details = Rep} = State,
+    {ok, LastSeq} = couch_replicator_api_wrap:get_view_seq(Db, Rep),
+    LastSeq;
 source_cur_seq(#rep_state{source = #httpdb{} = Db, source_seq = Seq}) ->
     case (catch couch_replicator_api_wrap:get_db_info(Db#httpdb{retries = 3})) of
     {ok, Info} ->
