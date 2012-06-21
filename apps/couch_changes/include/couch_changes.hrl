@@ -21,6 +21,8 @@
     filter = "",
     filter_fun,
     filter_args = [],
+    filter_view,
+    view_args = [],
     include_docs = false,
     fields = [],
     conflicts = false,
