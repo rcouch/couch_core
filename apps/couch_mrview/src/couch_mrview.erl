@@ -157,6 +157,9 @@ get_info(Db, DDoc) ->
     {ok, Pid} = couch_index_server:get_index(couch_mrview_index, Db, DDoc),
     couch_index:get_info(Pid).
 
+refresh(#db{name=DbName}, DDoc) ->
+    refresh(DbName, DDoc);
+
 refresh(Db, DDoc) ->
     UpdateSeq = couch_util:with_db(Db, fun(WDb) ->
                     couch_db:get_update_seq(WDb)
