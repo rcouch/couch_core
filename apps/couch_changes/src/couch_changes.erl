@@ -93,7 +93,7 @@ handle_changes(Args0, Req, Db0) ->
                     Acc0,
                     true)
             after
-                maybe_stop_notifier_pid(Notify),
+                unsubscribe_changes_events(Notify, Db0, Args),
                 get_rest_db_updated(ok) % clean out any remaining update messages
             end
         end;
@@ -116,8 +116,7 @@ handle_changes(Args0, Req, Db0) ->
 
 subscribe_changes_events("_view", #db{name=DbName},
                          #changes_args{filter_view={DName, _VName}}) ->
-    DesignId = <<"_design/", DName/binary>>,
-    couch_mrview_events:subscribe(DbName, DesignId),
+    couch_mrview:subscribe(DbName, <<"_design/", DName/binary>>),
     nil;
 subscribe_changes_events(_FilterName, Db0, _Args) ->
     Self = self(),
@@ -129,6 +128,12 @@ subscribe_changes_events(_FilterName, Db0, _Args) ->
         end
     ),
     Notify.
+
+unsubscribe_changes_events(nil, #db{name=DbName},
+                           #changes_args{filter_view={DName, _}}) ->
+    couch_mrview:unsubscribe(DbName, <<"_design/", DName/binary>>);
+unsubscribe_changes_events(Pid, _Db, _Args) ->
+    couch_db_update_notifier:stop(Pid).
 
 get_callback_acc({Callback, _UserAcc} = Pair) when is_function(Callback, 3) ->
     Pair;
@@ -677,11 +682,6 @@ filter_doc_fields([Field|Rest], {Props}=Doc, Acc) ->
             [{Field, Value} | Acc]
     end,
     filter_doc_fields(Rest, Doc, Acc1).
-
-maybe_stop_notifier_pid(nil) ->
-    ok;
-maybe_stop_notifier_pid(Pid) ->
-    couch_db_update_notifier:stop(Pid).
 
 parse_view_args({json_req, {Props}}) ->
     {Query} = couch_util:get_value(<<"query">>, Props, {[]}),
