@@ -44,6 +44,7 @@ init(_) ->
 
 handle_call({subscribe, DbName, DDoc, Subscriber}, _From, Indexers) ->
     Key = {DbName, DDoc},
+    unlink(Subscriber),
     Indexers2 = case dict:find(Key, Indexers) of
         {ok, _Pid} ->
             true = ets:insert(?SUBS, {Key, Subscriber});
@@ -57,6 +58,7 @@ handle_call({subscribe, DbName, DDoc, Subscriber}, _From, Indexers) ->
 
 handle_call({unsubscribe, DbName, DDoc, Subscriber}, _From, Indexers) ->
     Key = {DbName, DDoc},
+    unlink(Subscriber),
     Indexers2 = case ets:member(?SUBS, Key) of
         true ->
             ets:delete_object(?SUBS, {Key, Subscriber}),
