@@ -94,11 +94,15 @@ code_change(_OldVsn, Indexers, _Extra) ->
     {ok, Indexers}.
 
 terminate(_Reason, Indexers) ->
-    %% kill all indexers
-    dict:fold(fun(_Key, Pid, _Acc) ->
-                supervisor:terminate_child(couch_mrview_indexer_sup, Pid),
-                nil
-        end, nil, Indexers),
+    try
+        %% kill all indexers
+        dict:fold(fun(_Key, Pid, _Acc) ->
+                    supervisor:terminate_child(couch_mrview_indexer_sup, Pid),
+                    nil
+            end, nil, Indexers)
+    catch
+        _:_ -> ok
+    end,
     ok.
 
 maybe_stop_indexer(Key, Indexers) ->
