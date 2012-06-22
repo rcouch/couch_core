@@ -15,6 +15,7 @@
 -export([query_all_docs/2, query_all_docs/4]).
 -export([query_view/3, query_view/4, query_view/6]).
 -export([view_changes_since/5, view_changes_since/6, view_changes_since/7]).
+-export([get_last_seq/4]).
 -export([get_info/2]).
 -export([refresh/2]).
 -export([subscribe/2, unsubscribe/2, notify/3]).
@@ -144,12 +145,52 @@ view_changes_since(Db, DDoc, VName, StartSeq, Callback,
                     {View#mrview.seq_btree, [{start_key, {SK, StartSeq+1}},
                                              {end_key, {EK, EndSeq}}]}
             end,
-
+            Opts2 = [{dir, Dir} | Opts],
             {ok, _R, {_, _, AccOut}} = couch_btree:fold(Btree, WrapperFun,
-                                                        Acc0, Opts),
+                                                        Acc0, Opts2),
             {ok, AccOut};
         _ ->
             {error, seqs_not_indexed}
+    end.
+
+
+get_last_seq(Db, DDoc, VName, Args) when is_list(Args) ->
+    get_last_seq(Db, DDoc, VName, to_mrargs(Args));
+get_last_seq(Db, DDoc, VName, Args) ->
+    {ok, {_, View}, State, _, _} = couch_mrview_util:get_view(Db, DDoc,
+                                                             VName, Args),
+    LastSeq = View#mrview.update_seq,
+    case View#mrview.seq_indexed of
+        true ->
+            {Btree, Opts} = case {Args#mrargs.start_key, Args#mrargs.end_key} of
+                {undefined, undefined} ->
+                    #mrst{seq_btree=SeqBtree} = State,
+                    #mrview{id_num=Id}=View,
+                    {SeqBtree, [{start_key, {Id, LastSeq}},
+                                {end_key, {Id, 0}}]};
+                {SK, undefined} ->
+                    {View#mrview.seq_btree, [{start_key, {SK, LastSeq}},
+                                             {end_key, {SK, 0}}]};
+                {undefined, EK} ->
+                    {View#mrview.seq_btree, [{start_key, {EK, LastSeq}},
+                                             {end_key, {EK, 0}}]};
+                {SK, EK} ->
+                    {View#mrview.seq_btree, [{start_key, {SK, LastSeq}},
+                                             {end_key, {EK, 0}}]}
+            end,
+            Opts2 = [{dir, rev} | Opts],
+
+            WrapperFun = fun
+                ({{_, Seq}, _}, _, _) ->
+                    {stop, Seq};
+                (_, _, Acc2) ->
+                    {ok, Acc2}
+            end,
+            {ok, _R, AccOut} = couch_btree:fold(Btree, WrapperFun,
+                                                        LastSeq, Opts2),
+            {ok, AccOut};
+        _ ->
+            {ok, LastSeq}
     end.
 
 
@@ -175,6 +216,7 @@ refresh(Db, DDoc) ->
         Error ->
             {error, Error}
     end.
+
 
 subscribe(DbName, DDoc) ->
     couch_mrview_events:subscribe(DbName, DDoc).
