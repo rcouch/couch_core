@@ -74,7 +74,7 @@ do_changes_req(Req, Db) ->
             couch_httpd:send_chunk(Resp, "\n")
         end
     end,
-    ChangesArgs = parse_changes_query(Req),
+    ChangesArgs = parse_changes_query(Req, Db),
     ChangesFun = couch_changes:handle_changes(ChangesArgs, Req, Db),
 
     couch_stats_collector:increment(
@@ -108,13 +108,18 @@ do_changes_req(_Db, Req, _ChangesArgs, ChangesFun, MakeCallback) ->
     {ok, Resp} = couch_httpd:start_json_response(Req, 200),
     ChangesFun(MakeCallback(Resp)).
 
-parse_changes_query(Req) ->
+parse_changes_query(Req, Db) ->
     lists:foldl(fun({Key, Value}, Args) ->
         case {string:to_lower(Key), Value} of
         {"feed", _} ->
             Args#changes_args{feed=Value};
         {"descending", "true"} ->
             Args#changes_args{dir=rev};
+        {"since", "now"} ->
+            UpdateSeq = couch_util:with_db(Db#db.name, fun(WDb) ->
+                                        couch_db:get_update_seq(WDb)
+                                end),
+            Args#changes_args{since=UpdateSeq};
         {"since", _} ->
             Args#changes_args{since=list_to_integer(Value)};
         {"last-event-id", _} ->
