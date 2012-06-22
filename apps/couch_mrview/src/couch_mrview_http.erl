@@ -45,7 +45,16 @@ handle_all_docs_req(#httpd{method='POST'}=Req, Db) ->
 handle_all_docs_req(Req, _Db) ->
     couch_httpd:send_method_not_allowed(Req, "GET,POST,HEAD").
 
-
+handle_view_req(#httpd{method='GET',
+                       path_parts=[_, _, _, _, VName, <<"_last_seq">>]}=Req,
+                Db, DDoc) ->
+    Args0 = parse_qs(Req, undefined),
+    {ok, LastSeq} = couch_mrview:get_last_seq(Db#db.name, DDoc, VName,
+                                              Args0),
+    couch_httpd:send_json(Req, 200, {[
+        {name, VName},
+        {last_seq, LastSeq}
+    ]});
 handle_view_req(#httpd{method='GET'}=Req, Db, DDoc) ->
     [_, _, _, _, ViewName] = Req#httpd.path_parts,
     couch_stats_collector:increment({httpd, view_reads}),
