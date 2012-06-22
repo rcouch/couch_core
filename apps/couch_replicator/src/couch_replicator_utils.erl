@@ -38,11 +38,24 @@ parse_rep_doc({Props}, UserCtx) ->
     true ->
         {ok, #rep{options = Options, user_ctx = UserCtx}};
     false ->
-        Source = parse_rep_db(get_value(<<"source">>, Props), ProxyParams, Options),
-        Target = parse_rep_db(get_value(<<"target">>, Props), ProxyParams, Options),
+        Source = parse_rep_db(get_value(<<"source">>, Props), ProxyParams,
+                              Options),
+        Target = parse_rep_db(get_value(<<"target">>, Props), ProxyParams,
+                              Options),
+        {Type, DDoc} = case get_value(<<"filter">>, Props) of
+                <<"_view">> ->
+                    {QP}  = get_value(query_params, Options, {[]}),
+                    View = get_value(<<"view">>, QP),
+                    [DName, VName] = binary:split(View, <<"/">>),
+                    {view, {<< "_design/", DName/binary >>, VName}};
+                _ ->
+                    {db, nil}
+        end,
         Rep = #rep{
             source = Source,
             target = Target,
+            type = Type,
+            view = DDoc,
             options = Options,
             user_ctx = UserCtx,
             doc_id = get_value(<<"_id">>, Props, null)

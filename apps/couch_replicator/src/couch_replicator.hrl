@@ -16,6 +16,8 @@
     id,
     source,
     target,
+    type = db,
+    view = nil,
     options,
     user_ctx,
     doc_id
