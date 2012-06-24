@@ -14,6 +14,7 @@
 
 -export([maybe_create_meta/2]).
 -export([maybe_delete_meta/1]).
+-export([get_meta/1]).
 -export([ensure_meta_db_exists/0]).
 
 -include("couch_db.hrl").
@@ -55,6 +56,11 @@ maybe_delete_meta(DbName) ->
             ?LOG_INFO("Can't find the meta doc for Db: ~p. Error: ~p!~n", [DbName, Error]),
             Error
     end. 
+
+get_meta(DbName) ->
+    {ok, Db} = ensure_meta_db_exists(),
+    DocId = DbName,
+    couch_db:open_doc(Db, DocId, []).
 
 %update_doc_with(DocBody, KVs) ->
 %    lists:foldl(
