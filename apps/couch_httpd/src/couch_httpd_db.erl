@@ -160,6 +160,7 @@ delete_db_req(#httpd{user_ctx=UserCtx}=Req, DbName) ->
     ok = couch_httpd:verify_is_server_admin(Req),
     case couch_server:delete(DbName, [{user_ctx, UserCtx}]) of
     ok ->
+        couch_meta:maybe_delete_meta(DbName),
         send_json(Req, 200, {[{ok, true}]});
     Error ->
         throw(Error)

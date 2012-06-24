@@ -13,24 +13,59 @@
 -module(couch_meta).
 
 -export([maybe_create_meta/2]).
+-export([maybe_delete_meta/1]).
 -export([ensure_meta_db_exists/0]).
 
 -include("couch_db.hrl").
 
-maybe_create_meta(DbName, undefined) ->
-    ensure_meta_db_exists(),
-    io:format("No meta for db ~p, let's go on...~n", [DbName]),
-    ok;
+create_default_meta_for_db(_DbName) ->
+    {[]}.
+
 maybe_create_meta(DbName, Meta) ->
-    io:format("Meta to create! with value: ~p for dbname ~p~n", [Meta, DbName]),
     {ok, Db} = ensure_meta_db_exists(),
-    Doc = couch_doc:from_json_obj(Meta),
+    JsonDoc = case Meta of
+        undefined ->
+            create_default_meta_for_db(DbName);
+        _ ->
+            Meta
+    end,
+    Doc = couch_doc:from_json_obj(JsonDoc),
     Doc2 = Doc#doc{id=DbName, revs={0, []}},
+    ?LOG_INFO("Doc to be created for db ~p: ~p~n",[DbName, Doc2]),
     case (catch couch_db:update_doc(Db, Doc2, [full_commit])) of
         {ok, _} -> ok;
         Error ->
-            ?LOG_INFO("Meta doc error (~s): ~p",[DbName, Error])
+            ?LOG_INFO("Meta doc error (~s): ~p",[DbName, Error]),
+            Error
     end.
+
+maybe_delete_meta(DbName) ->
+    {ok, Db} = ensure_meta_db_exists(),
+    DocId = DbName,
+    case couch_db:open_doc(Db, DocId, []) of
+        {ok, Doc} ->
+            Doc2 = Doc#doc{deleted=true},
+            case (catch couch_db:update_doc(Db, Doc2, [full_commit])) of
+                {ok, _} -> ok;
+                Error ->
+                    ?LOG_INFO("Can't delete the meta doc for the db: ~p. Error: ~p!~n", [DbName, Error]),
+                    Error
+            end;
+        Error ->
+            ?LOG_INFO("Can't find the meta doc for Db: ~p. Error: ~p!~n", [DbName, Error]),
+            Error
+    end. 
+
+%update_doc_with(DocBody, KVs) ->
+%    lists:foldl(
+%        fun({K, undefined}, Body) ->
+%                lists:keydelete(K, 1, Body);
+%            ({K, _V} = KV, Body) ->
+%                lists:keystore(K, 1, Body, KV) 
+%        end,
+%        DocBody,
+%        KVs
+%    ).
 
 ensure_meta_db_exists() ->
     DbName = ?l2b(couch_config:get("meta", "db", "rc_dbs")),
