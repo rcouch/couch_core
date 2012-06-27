@@ -12,6 +12,10 @@
 
 -module(couch_meta).
 
+%% ------------------------------------------------------------------
+%% API Function Exports
+%% ------------------------------------------------------------------
+
 -export([maybe_create_meta/2]).
 -export([maybe_delete_meta/1]).
 -export([get_meta/1]).
@@ -20,8 +24,9 @@
 
 -include("couch_db.hrl").
 
-create_default_meta_for_db(_DbName) ->
-    {[]}.
+%% ------------------------------------------------------------------
+%% API Function Definitions
+%% ------------------------------------------------------------------
 
 maybe_create_meta(DbName, Meta) ->
     {ok, Db} = ensure_meta_db_exists(),
@@ -66,6 +71,28 @@ get_meta(DbName) ->
 update_meta(_DbName, _Meta) ->
     ok.
 
+ensure_meta_db_exists() ->
+    DbName = ?l2b(couch_config:get("meta", "db", "rc_dbs")),
+    case get_db(DbName) of
+    {ok, Db} ->
+        Db;
+    _Error ->
+        UserCtx = #user_ctx{roles = [<<"_admin">>, DbName]},
+        {ok, Db} = couch_db:create(DbName, [sys_db, {user_ctx, UserCtx}])
+    end,
+    {ok, Db}.
+
+%% ------------------------------------------------------------------
+%% Internal Function Definitions
+%% ------------------------------------------------------------------
+
+create_default_meta_for_db(_DbName) ->
+    {[]}.
+
+get_db(DbName) ->
+    UserCtx = #user_ctx{roles = [<<"_admin">>, DbName]},
+    couch_db:open_int(DbName, [sys_db, {user_ctx, UserCtx}]).
+
 %update_doc_with(DocBody, KVs) ->
 %    lists:foldl(
 %        fun({K, undefined}, Body) ->
@@ -77,13 +104,3 @@ update_meta(_DbName, _Meta) ->
 %        KVs
 %    ).
 
-ensure_meta_db_exists() ->
-    DbName = ?l2b(couch_config:get("meta", "db", "rc_dbs")),
-    UserCtx = #user_ctx{roles = [<<"_admin">>, <<"rc_dbs">>]},
-    case couch_db:open_int(DbName, [sys_db, {user_ctx, UserCtx}]) of
-    {ok, Db} ->
-        Db;
-    _Error ->
-        {ok, Db} = couch_db:create(DbName, [sys_db, {user_ctx, UserCtx}])
-    end,
-    {ok, Db}.
