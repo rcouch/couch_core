@@ -143,7 +143,6 @@ update_property(Props, Key, Value) ->
     end.
 
 update_system({Meta}) ->
-    SystemProp = lists:keyfind(<<"system">>, 1, Meta),
     case lists:keymember(<<"system">>, 1, Meta) of
         false ->
             % no system prop :-/
