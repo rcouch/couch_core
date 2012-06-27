@@ -15,6 +15,7 @@
 -export([maybe_create_meta/2]).
 -export([maybe_delete_meta/1]).
 -export([get_meta/1]).
+-export([update_meta/2]).
 -export([ensure_meta_db_exists/0]).
 
 -include("couch_db.hrl").
@@ -61,6 +62,9 @@ get_meta(DbName) ->
     {ok, Db} = ensure_meta_db_exists(),
     DocId = DbName,
     couch_db:open_doc(Db, DocId, []).
+
+update_meta(_DbName, _Meta) ->
+    ok.
 
 %update_doc_with(DocBody, KVs) ->
 %    lists:foldl(

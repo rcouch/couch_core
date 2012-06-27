@@ -17,6 +17,7 @@
 -module(couch_httpd_meta).
 
 -export([handle_req/2]).
+-export([maybe_meta/1]).
 
 -include_lib("couch/include/couch_db.hrl").
 -include_lib("couch_httpd/include/couch_httpd.hrl").
@@ -30,12 +31,33 @@ handle_req(#httpd{method='GET', path_parts=[DbName|_]}=Req, _Db) ->
     end,
     couch_httpd:send_json(Req, 200, JsonObj);
 
-handle_req(#httpd{method='PUT'}=_Req, _Db) ->
-    ok;
+handle_req(#httpd{method='PUT', path_parts=[DbName|_]}=Req, _Db) ->
+    Meta = maybe_meta(Req),
+    case Meta of
+        {error, _} ->
+            couch_httpd:send_error(Req, 400, <<"bad_request">>, <<"Bad 'meta' property">>);
+        _ ->
+            couch_meta:update_meta(DbName, Meta),
+            couch_httpd:send_json(Req, 200, [], {[{ok, true}]})
+    end;
 
 handle_req(Req, _Db) ->
     couch_httpd:send_method_not_allowed(Req, "PUT,GET").
 
+maybe_meta(Req) ->
+    Props = (catch couch_httpd:json_body_obj(Req)),
+    case Props of
+        {JsonProps} ->
+            couch_httpd:validate_ctype(Req, "application/json"),
+            case couch_util:get_value(<<"meta">>, JsonProps) of
+                undefined ->
+                    {error, wrong_meta};
+                Meta ->
+                    Meta 
+            end; 
+        {_,_} ->
+            undefined
+    end.
 
 %% internal
 
