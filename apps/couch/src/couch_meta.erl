@@ -68,8 +68,27 @@ get_meta(DbName) ->
     DocId = DbName,
     couch_db:open_doc(Db, DocId, []).
 
-update_meta(_DbName, _Meta) ->
-    ok.
+update_meta(DbName, Meta) ->
+    ?LOG_INFO("Updating meta for Db ~p with: ~p~n", [DbName, Meta]),
+    {ok, Db} = ensure_meta_db_exists(),
+    DocId = DbName,
+    case couch_db:open_doc(Db, DocId, [ejson_body]) of
+        {ok, Doc} ->
+            % updating the doc
+            Body = Doc#doc.body,
+            UpdatedBodyWithNewMeta = { update_doc_with(Body, Meta) },
+            UpdatedBodyWithSystem  = update_system(UpdatedBodyWithNewMeta),
+            Doc2 = Doc#doc{body=UpdatedBodyWithSystem},
+            case (catch couch_db:update_doc(Db, Doc2, [full_commit])) of
+                {ok, _} -> ok;
+                Error ->
+                    ?LOG_INFO("Can't update the meta doc for the db: ~p. Error: ~p!~n", [DbName, Error]),
+                    Error
+            end;
+        Error ->
+            ?LOG_INFO("Couldn't find the meta doc for the db ~p!", [DbName]),
+            Error
+    end.
 
 ensure_meta_db_exists() ->
     DbName = ?l2b(couch_config:get("meta", "db", "rc_dbs")),
@@ -86,21 +105,62 @@ ensure_meta_db_exists() ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-create_default_meta_for_db(_DbName) ->
-    {[]}.
+create_default_meta_for_db(DbName) ->
+    Now = ?l2b(httpd_util:rfc1123_date()),
+    {[
+        {<<"system">>,
+            {[
+                {<<"db">>, DbName},
+                {<<"created">>, Now},
+                {<<"last_updated_at">>, Now}
+            ]}
+        }
+    ]}.
 
 get_db(DbName) ->
     UserCtx = #user_ctx{roles = [<<"_admin">>, DbName]},
     couch_db:open_int(DbName, [sys_db, {user_ctx, UserCtx}]).
 
-%update_doc_with(DocBody, KVs) ->
-%    lists:foldl(
-%        fun({K, undefined}, Body) ->
-%                lists:keydelete(K, 1, Body);
-%            ({K, _V} = KV, Body) ->
-%                lists:keystore(K, 1, Body, KV) 
-%        end,
-%        DocBody,
-%        KVs
-%    ).
+update_doc_with({DocBody}, {KVs}) ->
+    lists:foldl(
+        fun({<<"system">>, _}, Body) ->
+                Body;
+            ({K, undefined}, Body) ->
+                lists:keydelete(K, 1, Body);
+            ({K, _V} = KV, Body) ->
+                lists:keystore(K, 1, Body, KV) 
+        end,
+        DocBody,
+        KVs
+    ).
+
+update_property(Props, Key, Value) ->
+    case lists:keymember(Key, 1, Props) of
+        false ->
+            lists:keystore(Key, 1, Props, {Key, Value});
+        true  ->
+            lists:keyreplace(Key, 1, Props, {Key, Value})
+    end.
+
+update_system({Meta}) ->
+    SystemProp = lists:keyfind(<<"system">>, 1, Meta),
+    case lists:keymember(<<"system">>, 1, Meta) of
+        false ->
+            % no system prop :-/
+            % TODO need to change that
+            {Meta};
+        true  ->
+            {<<"system">>, Value} = lists:keyfind(<<"system">>, 1, Meta),
+            case Value of
+                {Props} ->
+                    Now = ?l2b(httpd_util:rfc1123_date()),
+                    UpdatedProps = update_property(Props, <<"last_updated_at">>, Now),
+                    UpdatedMeta = update_property(Meta, <<"system">>, {UpdatedProps}),
+                    {UpdatedMeta};
+                _ ->
+                    % what to do here with this weird value?
+                    % TODO override this
+                    {Meta}
+            end
+    end.
 
