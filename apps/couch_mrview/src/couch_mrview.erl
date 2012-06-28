@@ -509,8 +509,12 @@ default_cb(Row, Acc) ->
 
 to_mrargs(KeyList) ->
     lists:foldl(fun({Key, Value}, Acc) ->
-        Index = lookup_index(couch_util:to_existing_atom(Key)),
-        setelement(Index, Acc, Value)
+                case lookup_index(couch_util:to_existing_atom(Key)) of
+                    undefined ->
+                        Acc;
+                    Index ->
+                        setelement(Index, Acc, Value)
+                end
     end, #mrargs{}, KeyList).
 
 
