@@ -24,6 +24,13 @@
 
 -include("couch_db.hrl").
 
+-define(SYSTEM_KEY, <<"system">>).
+-define(DB_KEY, <<"db">>).
+-define(CREATED_KEY, <<"created">>).
+-define(LAST_UPDATED_AT_KEY, <<"last_updated_at">>).
+-define(COUCH_ID_KEY, <<"_id">>).
+-define(COUCH_REV_KEY, <<"_rev">>).
+
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
@@ -108,11 +115,11 @@ ensure_meta_db_exists() ->
 create_default_meta_for_db(DbName) ->
     Now = ?l2b(httpd_util:rfc1123_date()),
     {[
-        {<<"system">>,
+        {?SYSTEM_KEY,
             {[
-                {<<"db">>, DbName},
-                {<<"created">>, Now},
-                {<<"last_updated_at">>, Now}
+                {?DB_KEY,              DbName},
+                {?CREATED_KEY,         Now   },
+                {?LAST_UPDATED_AT_KEY, Now   }
             ]}
         }
     ]}.
@@ -123,7 +130,14 @@ get_db(DbName) ->
 
 update_doc_with({DocBody}, {KVs}) ->
     lists:foldl(
-        fun({<<"system">>, _}, Body) ->
+        fun ({?SYSTEM_KEY, _}, Body) ->
+                % ignoring any system property: reserved
+                Body;
+            ({?COUCH_ID_KEY, _}, Body) ->
+                % ignoring _id: can't be changed
+                Body;
+            ({?COUCH_REV_KEY, _}, Body) ->
+                % ignoring _rev: can't be changed
                 Body;
             ({K, undefined}, Body) ->
                 lists:keydelete(K, 1, Body);
@@ -143,18 +157,18 @@ update_property(Props, Key, Value) ->
     end.
 
 update_system({Meta}) ->
-    case lists:keymember(<<"system">>, 1, Meta) of
+    case lists:keymember(?SYSTEM_KEY, 1, Meta) of
         false ->
             % no system prop :-/
             % TODO need to change that
             {Meta};
         true  ->
-            {<<"system">>, Value} = lists:keyfind(<<"system">>, 1, Meta),
+            {?SYSTEM_KEY, Value} = lists:keyfind(?SYSTEM_KEY, 1, Meta),
             case Value of
                 {Props} ->
                     Now = ?l2b(httpd_util:rfc1123_date()),
-                    UpdatedProps = update_property(Props, <<"last_updated_at">>, Now),
-                    UpdatedMeta = update_property(Meta, <<"system">>, {UpdatedProps}),
+                    UpdatedProps = update_property(Props, ?LAST_UPDATED_AT_KEY, Now),
+                    UpdatedMeta = update_property(Meta, ?SYSTEM_KEY, {UpdatedProps}),
                     {UpdatedMeta};
                 _ ->
                     % what to do here with this weird value?
