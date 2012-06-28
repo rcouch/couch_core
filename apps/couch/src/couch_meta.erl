@@ -84,7 +84,7 @@ update_meta(DbName, Meta) ->
             % updating the doc
             Body = Doc#doc.body,
             UpdatedBodyWithNewMeta = { update_doc_with(Body, Meta) },
-            UpdatedBodyWithSystem  = update_system(UpdatedBodyWithNewMeta),
+            UpdatedBodyWithSystem  = update_system(DbName, UpdatedBodyWithNewMeta),
             Doc2 = Doc#doc{body=UpdatedBodyWithSystem},
             case (catch couch_db:update_doc(Db, Doc2, [full_commit])) of
                 {ok, _} -> ok;
@@ -115,13 +115,17 @@ ensure_meta_db_exists() ->
 create_default_meta_for_db(DbName) ->
     Now = ?l2b(httpd_util:rfc1123_date()),
     {[
-        {?SYSTEM_KEY,
-            {[
-                {?DB_KEY,              DbName},
-                {?CREATED_KEY,         Now   },
-                {?LAST_UPDATED_AT_KEY, Now   }
-            ]}
-        }
+        { ?SYSTEM_KEY, create_default_system_property(DbName, Now) }
+    ]}.
+
+create_default_system_property(DbName, Timestamp) ->
+    create_system_property(DbName, Timestamp, Timestamp).
+
+create_system_property(DbName, CreateTimestamp, UpdateTimestamp) ->
+    {[
+        { ?DB_KEY,              DbName          },
+        { ?CREATED_KEY,         CreateTimestamp },
+        { ?LAST_UPDATED_AT_KEY, UpdateTimestamp }
     ]}.
 
 get_db(DbName) ->
@@ -156,24 +160,30 @@ update_property(Props, Key, Value) ->
             lists:keyreplace(Key, 1, Props, {Key, Value})
     end.
 
-update_system({Meta}) ->
+update_system(DbName, {Meta}) ->
+    Now = ?l2b(httpd_util:rfc1123_date()),
+
     case lists:keymember(?SYSTEM_KEY, 1, Meta) of
         false ->
             % no system prop :-/
-            % TODO need to change that
-            {Meta};
+            ?LOG_INFO("No system property for meta doc ~p! Repairing!~n", [DbName]),
+            DefaultSystemProp = create_system_property(DbName, <<"unknown">>, Now),
+            UpdatedMeta = update_property(Meta, ?SYSTEM_KEY, DefaultSystemProp),
+            {UpdatedMeta};
         true  ->
             {?SYSTEM_KEY, Value} = lists:keyfind(?SYSTEM_KEY, 1, Meta),
             case Value of
                 {Props} ->
-                    Now = ?l2b(httpd_util:rfc1123_date()),
+                    % updating the last_updated_at property with the timestamp
                     UpdatedProps = update_property(Props, ?LAST_UPDATED_AT_KEY, Now),
                     UpdatedMeta = update_property(Meta, ?SYSTEM_KEY, {UpdatedProps}),
                     {UpdatedMeta};
                 _ ->
-                    % what to do here with this weird value?
-                    % TODO override this
-                    {Meta}
+                    % system seems corrupted .. time to repair
+                    ?LOG_INFO("Wrong system property for meta doc ~p! Repairing!~n", [DbName]),
+                    DefaultSystemProp = create_system_property(DbName, <<"unknown">>, Now),
+                    UpdatedMeta = update_property(Meta, ?SYSTEM_KEY, DefaultSystemProp),
+                    {UpdatedMeta}
             end
     end.
 
