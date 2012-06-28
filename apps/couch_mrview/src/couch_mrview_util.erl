@@ -767,6 +767,8 @@ to_seqkvs([{not_found, _} | Rest], Acc) ->
     to_seqkvs(Rest, Acc);
 to_seqkvs([{_Id, {_Seq, []}} | Rest], Acc) ->
     to_seqkvs(Rest, Acc);
+to_seqkvs([{Id, {Seq, {ViewId, _}}} | Rest], Acc) ->
+    to_seqkvs(Rest, [{{ViewId, Seq}, Id} | Acc]);
 to_seqkvs([{Id, {Seq, Keys}} | Rest], Acc0) ->
     Acc1 = lists:foldl(fun({ViewId, _}, Acc) ->
                 [{{ViewId, Seq}, Id} | Acc]
