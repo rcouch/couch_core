@@ -85,10 +85,14 @@ query_view(Db, DDoc, VName, Args0, Callback, Acc0) ->
     query_view(Db, VInfo, Args, Callback, Acc1).
 
 
-query_view(Db, {Type, View}, Args, Callback, Acc) ->
-    case Type of
-        map -> map_fold(Db, View, Args, Callback, Acc);
-        red -> red_fold(Db, View, Args, Callback, Acc)
+query_view(Db, {Type, View, Ref}, Args, Callback, Acc) ->
+    try
+        case Type of
+            map -> map_fold(Db, View, Args, Callback, Acc);
+            red -> red_fold(Db, View, Args, Callback, Acc)
+        end
+    after
+        erlang:demonitor(Ref, [flush])
     end.
 
 view_changes_since(Db, DDoc, VName, StartSeq, Callback) ->
@@ -101,55 +105,22 @@ view_changes_since(Db, DDoc, VName, StartSeq, Callback, Args, Acc)
         when is_list(Args) ->
     view_changes_since(Db, DDoc, VName, StartSeq, Callback,
                        to_mrargs(Args), Acc);
-view_changes_since(Db, DDoc, VName, StartSeq, Callback,
-                   #mrargs{direction=Dir}=Args0, Acc) ->
-    EndSeq = case Dir of
-        fwd -> 16#10000000;
-        rev -> 0
-    end,
+view_changes_since(Db, DDoc, VName, StartSeq, Callback, Args0, Acc) ->
     {ok, VInfo,  State, _Sig, Args} = couch_mrview_util:get_view(Db, DDoc,
                                                         VName, Args0),
 
-    {_Type, View} = VInfo,
+    {_Type, View, Ref} = VInfo,
     case View#mrview.seq_indexed of
         true ->
-            Acc0 = {Dir, StartSeq, Acc},
-            WrapperFun = fun
-                ({{_ViewId, Seq}, {DocId, Key, Val}}, _Reds, {_, _, Acc2}) ->
-                    {ok, Acc3} = Callback({{Key, Seq}, {DocId, Val}}, Acc2),
-                    {ok, {fwd, Seq, Acc3}};
-                ({{_Key, Seq}, _DocId}=KV, _Reds, {fwd, LastSeq, Acc2})
-                        when Seq > LastSeq, Seq =< EndSeq ->
-                    {ok, Acc3} = Callback(KV, Acc2),
-                    {ok, {fwd, Seq, Acc3}};
-                ({{_Key, Seq}, _DocId}=KV, _Reds, {D, LastSeq, Acc2})
-                        when Seq < LastSeq, Seq >= EndSeq ->
-                    {ok, Acc3} = Callback(KV, Acc2),
-                    {ok, {D, Seq, Acc3}};
-                (_, _, Acc2) ->
-                    {ok, Acc2}
-            end,
-            {Btree, Opts} = case {Args#mrargs.start_key, Args#mrargs.end_key} of
-                {undefined, undefined} ->
-                    #mrst{seq_btree=SeqBtree} = State,
-                    #mrview{id_num=Id}=View,
-                    {SeqBtree, [{start_key, {Id, StartSeq+1}},
-                                {end_key, {Id, EndSeq}}]};
-                {SK, undefined} ->
-                    {View#mrview.seq_btree, [{start_key, {SK, StartSeq+1}},
-                                             {end_key, {SK, EndSeq}}]};
-                {undefined, EK} ->
-                    {View#mrview.seq_btree, [{start_key, {EK, StartSeq+1}},
-                                             {end_key, {EK, EndSeq}}]};
-                {SK, EK} ->
-                    {View#mrview.seq_btree, [{start_key, {SK, StartSeq+1}},
-                                             {end_key, {EK, EndSeq}}]}
-            end,
-            Opts2 = [{dir, Dir} | Opts],
-            {ok, _R, {_, _, AccOut}} = couch_btree:fold(Btree, WrapperFun,
-                                                        Acc0, Opts2),
-            {ok, AccOut};
+            try
+                get_view_changes(View, State, StartSeq, Callback,
+                                 Args, Acc)
+            after
+                erlang:demonitor(Ref, [flush])
+            end;
+
         _ ->
+            erlang:demonitor(Ref, [flush]),
             {error, seqs_not_indexed}
     end.
 
@@ -157,43 +128,20 @@ view_changes_since(Db, DDoc, VName, StartSeq, Callback,
 get_last_seq(Db, DDoc, VName, Args) when is_list(Args) ->
     get_last_seq(Db, DDoc, VName, to_mrargs(Args));
 get_last_seq(Db, DDoc, VName, Args) ->
-    {ok, {_, View}, State, _, _} = couch_mrview_util:get_view(Db, DDoc,
+    {ok, {_, View, Ref}, State, _, _} = couch_mrview_util:get_view(Db, DDoc,
                                                              VName, Args),
     LastSeq = View#mrview.update_seq,
     case View#mrview.seq_indexed of
         true ->
-            {Btree, Opts} = case {Args#mrargs.start_key, Args#mrargs.end_key} of
-                {undefined, undefined} ->
-                    #mrst{seq_btree=SeqBtree} = State,
-                    #mrview{id_num=Id}=View,
-                    {SeqBtree, [{start_key, {Id, LastSeq}},
-                                {end_key, {Id, 0}}]};
-                {SK, undefined} ->
-                    {View#mrview.seq_btree, [{start_key, {SK, LastSeq}},
-                                             {end_key, {SK, 0}}]};
-                {undefined, EK} ->
-                    {View#mrview.seq_btree, [{start_key, {EK, LastSeq}},
-                                             {end_key, {EK, 0}}]};
-                {SK, EK} ->
-                    {View#mrview.seq_btree, [{start_key, {SK, LastSeq}},
-                                             {end_key, {EK, 0}}]}
-            end,
-            Opts2 = [{dir, rev} | Opts],
-
-            WrapperFun = fun
-                ({{_, Seq}, _}, _, _) ->
-                    {stop, Seq};
-                (_, _, Acc2) ->
-                    {ok, Acc2}
-            end,
-            {ok, _R, AccOut} = couch_btree:fold(Btree, WrapperFun,
-                                                        LastSeq, Opts2),
-            {ok, AccOut};
+            try
+                get_last_seq1(View, State, LastSeq, Args)
+            after
+                erlang:demonitor(Ref, [flush])
+            end;
         _ ->
+            erlang:demonitor(Ref, [flush]),
             {ok, LastSeq}
     end.
-
-
 
 get_info(Db, DDoc) ->
     {ok, Pid} = couch_index_server:get_index(couch_mrview_index, Db, DDoc),
@@ -476,6 +424,79 @@ finish_fold(#mracc{last_go=ok, update_seq=UpdateSeq}=Acc,  ExtraMeta) ->
     {ok, UAcc2};
 finish_fold(#mracc{user_acc=UAcc}, _ExtraMeta) ->
     {ok, UAcc}.
+
+
+get_view_changes(View, State, StartSeq, Callback, #mrargs{direction=Dir}=Args,
+                 Acc) ->
+    EndSeq = case Dir of
+        fwd -> 16#10000000;
+        rev -> 0
+    end,
+    Acc0 = {Dir, StartSeq, Acc},
+    WrapperFun = fun
+        ({{_ViewId, Seq}, {DocId, Key, Val}}, _Reds, {_, _, Acc2}) ->
+            {ok, Acc3} = Callback({{Key, Seq}, {DocId, Val}}, Acc2),
+            {ok, {fwd, Seq, Acc3}};
+        ({{_Key, Seq}, _DocId}=KV, _Reds, {fwd, LastSeq, Acc2})
+                when Seq > LastSeq, Seq =< EndSeq ->
+            {ok, Acc3} = Callback(KV, Acc2),
+            {ok, {fwd, Seq, Acc3}};
+        ({{_Key, Seq}, _DocId}=KV, _Reds, {D, LastSeq, Acc2})
+                when Seq < LastSeq, Seq >= EndSeq ->
+            {ok, Acc3} = Callback(KV, Acc2),
+            {ok, {D, Seq, Acc3}};
+        (_, _, Acc2) ->
+            {ok, Acc2}
+    end,
+    {Btree, Opts} = case {Args#mrargs.start_key, Args#mrargs.end_key} of
+        {undefined, undefined} ->
+            #mrst{seq_btree=SeqBtree} = State,
+            #mrview{id_num=Id}=View,
+            {SeqBtree, [{start_key, {Id, StartSeq+1}},
+                        {end_key, {Id, EndSeq}}]};
+        {SK, undefined} ->
+            {View#mrview.seq_btree, [{start_key, {SK, StartSeq+1}},
+                                     {end_key, {SK, EndSeq}}]};
+        {undefined, EK} ->
+            {View#mrview.seq_btree, [{start_key, {EK, StartSeq+1}},
+                                     {end_key, {EK, EndSeq}}]};
+        {SK, EK} ->
+            {View#mrview.seq_btree, [{start_key, {SK, StartSeq+1}},
+                                     {end_key, {EK, EndSeq}}]}
+    end,
+    Opts2 = [{dir, Dir} | Opts],
+    {ok, _R, {_, _, AccOut}} = couch_btree:fold(Btree, WrapperFun,
+                                                Acc0, Opts2),
+    {ok, AccOut}.
+
+get_last_seq1(View, State, LastSeq, Args) ->
+    {Btree, Opts} = case {Args#mrargs.start_key, Args#mrargs.end_key} of
+        {undefined, undefined} ->
+            #mrst{seq_btree=SeqBtree} = State,
+            #mrview{id_num=Id}=View,
+            {SeqBtree, [{start_key, {Id, LastSeq}},
+                        {end_key, {Id, 0}}]};
+        {SK, undefined} ->
+            {View#mrview.seq_btree, [{start_key, {SK, LastSeq}},
+                                     {end_key, {SK, 0}}]};
+        {undefined, EK} ->
+            {View#mrview.seq_btree, [{start_key, {EK, LastSeq}},
+                                     {end_key, {EK, 0}}]};
+        {SK, EK} ->
+            {View#mrview.seq_btree, [{start_key, {SK, LastSeq}},
+                                     {end_key, {EK, 0}}]}
+    end,
+    Opts2 = [{dir, rev} | Opts],
+
+    WrapperFun = fun
+        ({{_, Seq}, _}, _, _) ->
+            {stop, Seq};
+        (_, _, Acc2) ->
+            {ok, Acc2}
+    end,
+    {ok, _R, AccOut} = couch_btree:fold(Btree, WrapperFun,
+                                                LastSeq, Opts2),
+    {ok, AccOut}.
 
 
 make_meta(Args, UpdateSeq, Base) ->

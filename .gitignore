@@ -19,6 +19,7 @@ build-aux
 *.sw*
 *.gz
 *.beam
+*.rej
 
 # couch
 apps/couch/couchjs
