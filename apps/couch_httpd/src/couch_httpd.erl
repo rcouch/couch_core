@@ -729,7 +729,7 @@ send_response(#httpd{mochi_req=MochiReq}=Req, Code, Headers, Body) ->
     couch_stats_collector:increment({httpd_status_codes, Code}),
     Headers2 = http_1_0_keep_alive(MochiReq, Headers),
     if Code >= 400 ->
-        ?LOG_DEBUG("httpd ~p error response:~n ~s", [Code, Body]);
+        ?LOG_DEBUG("httpd ~p error response:~n ~p", [Code, Body]);
     true -> ok
     end,
     {ok, MochiReq:respond({Code, Headers2 ++ server_header() ++ couch_httpd_auth:cookie_auth_header(Req, Headers2), Body})}.
