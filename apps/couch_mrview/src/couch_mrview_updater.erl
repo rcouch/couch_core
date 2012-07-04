@@ -93,8 +93,8 @@ purge(_Db, PurgeSeq, PurgedIdRevs, State) ->
           case dict:find(Num, KeysToRem) of
             {ok, RemKeys} ->
                 {ok, Btree2} = couch_btree:add_remove(Btree, [], RemKeys),
-                {ok, SBtree2} = case SeqIndexed of
-                    true ->
+                {ok, SBtree2} = case SBtree of
+                    nil ->
                         {ok, nil};
                     _ ->
                         {ok, RemSKeys} = dict:find(Num, SKeysToRem),

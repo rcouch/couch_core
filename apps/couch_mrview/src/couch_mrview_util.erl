@@ -82,7 +82,8 @@ ddoc_to_mrst(DbName, #doc{id=Id, body={Fields}}) ->
                         RedFuns = [{Name, RedSrc} | View#mrview.reduce_funs],
                         {View#mrview.map_names, RedFuns}
                 end,
-                View2 = View#mrview{map_names=MapNames,reduce_funs=RedSrcs},
+                View2 = View#mrview{seq_indexed=SeqIndexed,
+                                    map_names=MapNames,reduce_funs=RedSrcs},
                 dict:store({MapSrc, ViewOpts}, View2, DictBySrcAcc);
             undefined ->
                 DictBySrcAcc
@@ -603,6 +604,7 @@ reset_state(State) ->
         qserver=nil,
         update_seq=0,
         id_btree=nil,
+        seq_btree=nil,
         views=[View#mrview{btree=nil, seq_btree=nil} || View <- State#mrst.views]
     }.
 
