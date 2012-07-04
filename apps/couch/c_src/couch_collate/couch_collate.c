@@ -247,7 +247,27 @@ on_reload(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM info)
 int
 on_upgrade(ErlNifEnv* env, void** priv_data, void** old_data, ERL_NIF_TERM info)
 {
-    return 0;
+    if (*old_data != NULL) {
+        priv_data_t* pData = (priv_data_t*)old_data;
+
+        if (pData->collators != NULL) {
+            int i;
+
+            for (i = 0; i < pData->numCollators; i++) {
+                ucol_close(pData->collators[i]);
+            }
+
+            enif_free(pData->collators);
+        }
+
+        if (pData->collMutex != NULL) {
+            enif_mutex_destroy(pData->collMutex);
+        }
+
+        enif_free((char*)pData);
+    }
+
+    return on_load(env, priv_data, info);
 }
 
 /* ------------------------------------------------------------------------- */
