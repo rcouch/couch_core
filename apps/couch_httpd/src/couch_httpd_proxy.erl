@@ -160,10 +160,9 @@ stream_chunked_body({stream, MReq, CRem, Buf, BRem}) when BRem =< 0 ->
 stream_chunked_body({stream, MReq, CRem, Buf, BRem}) ->
     % Buffer some more data from the client.
     Length = lists:min([CRem, BRem]),
-    Socket = MReq:get(socket),
-    NewState = case mochiweb_socket:recv(Socket, Length, ?TIMEOUT) of
+    NewState = case MReq:recv(Length, ?TIMEOUT) of
         {ok, Data} when size(Data) == CRem ->
-            case mochiweb_socket:recv(Socket, 2, ?TIMEOUT) of
+            case MReq:recv(2, ?TIMEOUT) of
                 {ok, <<"\r\n">>} ->
                     {stream, MReq, 0, [<<"\r\n">>, Data | Buf], BRem-Length-2};
                 _ ->
@@ -184,7 +183,7 @@ stream_chunked_body({trailers, MReq, Buf, BRem}) ->
     % empty line.
     Socket = MReq:get(socket),
     mochiweb_socket:setopts(Socket, [{packet, line}]),
-    case mochiweb_socket:recv(Socket, 0, ?TIMEOUT) of
+    case MReq:recv(0, ?TIMEOUT) of
         {ok, <<"\r\n">>} ->
             mochiweb_socket:setopts(Socket, [{packet, raw}]),
             BodyData = lists:reverse(Buf, <<"\r\n">>),
@@ -234,7 +233,7 @@ init_body_stream(MochiReq) ->
 read_chunk_length(MochiReq) ->
     Socket = MochiReq:get(socket),
     mochiweb_socket:setopts(Socket, [{packet, line}]),
-    case mochiweb_socket:recv(Socket, 0, ?TIMEOUT) of
+    case MochiReq:recv(0, ?TIMEOUT) of
         {ok, Header} ->
             mochiweb_socket:setopts(Socket, [{packet, raw}]),
             Splitter = fun(C) ->
