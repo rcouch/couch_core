@@ -25,7 +25,7 @@ couchTests.rev_stemming = function(debug) {
 
   // Make an invalid request to _revs_limit
   // Should return 400
-  var xhr = CouchDB.request("PUT", "/test_suite_db/_revs_limit", {body:"\"foo\""});
+  var xhr = CouchDB.request("PUT", "/test_suite_db_a/_revs_limit", {body:"\"foo\""});
   T(xhr.status == 400);
   var result = JSON.parse(xhr.responseText);
   T(result.error == "bad_request");
