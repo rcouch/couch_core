@@ -24,6 +24,8 @@
 
 -include("couch_db.hrl").
 
+-define(ID_PREFIX, <<"meta_">>).
+
 -define(SYSTEM_KEY, <<"system">>).
 -define(DB_KEY, <<"db">>).
 -define(CREATED_KEY, <<"created">>).
@@ -35,27 +37,19 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
+%% @doc create a new meta document in the given Db and in rc_dbs.
 maybe_create_meta(DbName, Meta) ->
-    {ok, Db} = ensure_meta_db_exists(),
-    JsonDoc = case Meta of
-        undefined ->
-            create_default_meta_for_db(DbName);
-        _ ->
-            Meta
-    end,
-    Doc = couch_doc:from_json_obj(JsonDoc),
-    Doc2 = Doc#doc{id=DbName, revs={0, []}},
-    ?LOG_INFO("Doc to be created for db ~p: ~p~n",[DbName, Doc2]),
-    case (catch couch_db:update_doc(Db, Doc2, [full_commit])) of
-        {ok, _} -> ok;
-        Error ->
-            ?LOG_INFO("Meta doc error (~s): ~p",[DbName, Error]),
-            Error
-    end.
+    % create the document
+    Doc = new_meta_to_doc(DbName, Meta),
+
+    %% then save it
+    ?LOG_INFO("Doc to be created for db ~p: ~p~n",[DbName, Doc]),
+    write_doc(DbName, Doc).
 
 maybe_delete_meta(DbName) ->
-    {ok, Db} = ensure_meta_db_exists(),
-    DocId = DbName,
+    %{ok, Db} = ensure_meta_db_exists(),
+    {ok, Db} = get_db(DbName),
+    DocId = meta_doc_id(DbName),
     case couch_db:open_doc(Db, DocId, []) of
         {ok, Doc} ->
             Doc2 = Doc#doc{deleted=true},
@@ -71,14 +65,16 @@ maybe_delete_meta(DbName) ->
     end. 
 
 get_meta(DbName) ->
-    {ok, Db} = ensure_meta_db_exists(),
-    DocId = DbName,
+    %{ok, Db} = ensure_meta_db_exists(),
+    {ok, Db} = get_db(DbName),
+    DocId = meta_doc_id(DbName),
     couch_db:open_doc(Db, DocId, []).
 
 update_meta(DbName, Meta) ->
     ?LOG_INFO("Updating meta for Db ~p with: ~p~n", [DbName, Meta]),
-    {ok, Db} = ensure_meta_db_exists(),
-    DocId = DbName,
+    %{ok, Db} = ensure_meta_db_exists(),
+    {ok, Db} = get_db(DbName),
+    DocId = meta_doc_id(DbName),
     case couch_db:open_doc(Db, DocId, [ejson_body]) of
         {ok, Doc} ->
             % updating the doc
@@ -111,6 +107,40 @@ ensure_meta_db_exists() ->
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
+
+new_meta_to_doc(DbName, Meta) ->
+    JsonDoc = case Meta of
+        undefined ->
+            create_default_meta_for_db(DbName);
+        _ ->
+            Meta
+    end,
+    Doc = couch_doc:from_json_obj(JsonDoc),
+    DocId = meta_doc_id(DbName),
+    Doc#doc{id=DocId, revs={0, []}}.
+
+write_doc(DbName, Doc) ->
+    {ok, Db} = get_db(DbName),
+    DbResult = (catch couch_db:update_doc(Db, Doc, [full_commit])),
+    DbResult2 = case DbResult of
+        {ok, _} -> ok;
+        _ -> DbResult
+    end,
+    {ok, SysDb} = ensure_meta_db_exists(),
+    SysDbResult = (catch couch_db:update_doc(SysDb, Doc, [full_commit])),
+    SysDbResult2 = case SysDbResult of
+        {ok, _} -> ok;
+        _ -> SysDbResult
+    end,
+   if
+       (DbResult2 == ok) and (SysDbResult2 == ok) ->
+           ok;
+       true ->
+           {error, { {in_db, DbResult2}, {in_rc, SysDbResult2} } }
+   end.
+
+meta_doc_id(DbName) ->
+    << ?ID_PREFIX/binary, DbName/binary >>.
 
 create_default_meta_for_db(DbName) ->
     Now = ?l2b(httpd_util:rfc1123_date()),
