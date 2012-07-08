@@ -42,7 +42,13 @@ init([]) ->
             permanent,
             brutal_kill,
             worker,
-            dynamic}
+            dynamic},
+        {couch_auth_cache,
+            {couch_auth_cache, start_link, []},
+            permanent,
+            brutal_kill,
+            worker,
+            [couch_auth_cache]}
     ],
     {ok, {{one_for_one, 10, 3600}, Children}}.
 

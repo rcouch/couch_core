@@ -53,7 +53,6 @@ write_uri_file() ->
     end.
 
 init([]) ->
-    AuthCache = ?CHILD(couch_auth_cache),
     Vhost = ?CHILD(couch_httpd_vhost),
     Binding = ?SUP(couch_httpd_binding_sup),
-    {ok, {{one_for_all, 10, 10}, [AuthCache, Vhost, Binding]}}.
+    {ok, {{one_for_all, 10, 10}, [Vhost, Binding]}}.
