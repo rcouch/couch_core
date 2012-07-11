@@ -60,9 +60,10 @@ var DDoc = (function() {
     "lists"     : Render.list,
     "shows"    : Render.show,
     "filters"   : Filter.filter,
-    "views"     : Filter.filter_view, 
+    "views"     : Filter.filter_view,
     "updates"  : Render.update,
-    "validate_doc_update" : Validate.validate
+    "validate_doc_update" : Validate.validate,
+    "validate_doc_read" : Validate.validate
   };
   var ddocs = {};
   return {

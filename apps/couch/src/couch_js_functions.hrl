@@ -132,6 +132,7 @@
     }
 ">>).
 
+
 -define(OAUTH_MAP_FUN, <<"
     function(doc) {
         if (doc.type === 'user' && doc.oauth && doc.oauth.consumer_keys) {

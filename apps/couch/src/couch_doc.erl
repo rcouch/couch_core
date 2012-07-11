@@ -13,7 +13,8 @@
 -module(couch_doc).
 
 -export([to_doc_info/1,to_doc_info_path/1,parse_rev/1,parse_revs/1,rev_to_str/1,revs_to_strs/1]).
--export([att_foldl/3,range_att_foldl/5,att_foldl_decode/3,get_validate_doc_fun/1]).
+-export([att_foldl/3,range_att_foldl/5,att_foldl_decode/3,get_validate_doc_fun/1,
+        get_validate_read_doc_fun/1]).
 -export([from_json_obj/1,to_json_obj/2,has_stubs/1, merge_stubs/2]).
 -export([validate_docid/1]).
 -export([doc_from_multi_part_stream/2]).
@@ -62,8 +63,8 @@ revid_to_str(RevId) ->
 
 rev_to_str({Pos, RevId}) ->
     ?l2b([integer_to_list(Pos),"-",revid_to_str(RevId)]).
-                    
-                    
+
+
 revs_to_strs([]) ->
     [];
 revs_to_strs([{Pos, RevId}| Rest]) ->
@@ -406,6 +407,15 @@ get_validate_doc_fun(#doc{body={Props}}=DDoc) ->
         end
     end.
 
+get_validate_read_doc_fun(#doc{body={Props}}=DDoc) ->
+    case couch_util:get_value(<<"validate_doc_read">>, Props) of
+    undefined ->
+        nil;
+    _Else ->
+        fun(Doc, Ctx, SecObj) ->
+            couch_query_servers:validate_doc_read(DDoc, Doc, Ctx, SecObj)
+        end
+    end.
 
 has_stubs(#doc{atts=Atts}) ->
     has_stubs(Atts);
@@ -423,7 +433,7 @@ merge_stubs(#doc{id=Id,atts=MemBins}=StubsDoc, #doc{atts=DiskBins}) ->
     MergedBins = lists:map(
         fun(#att{name=Name, data=stub, revpos=StubRevPos}) ->
             case dict:find(Name, BinDict) of
-            {ok, #att{revpos=DiskRevPos}=DiskAtt} 
+            {ok, #att{revpos=DiskRevPos}=DiskAtt}
                     when DiskRevPos == StubRevPos orelse StubRevPos == nil ->
                 DiskAtt;
             _ ->
@@ -517,7 +527,7 @@ doc_from_multi_part_stream(ContentType, DataFun) ->
         end),
     Ref = make_ref(),
     Parser ! {get_doc_bytes, Ref, self()},
-    receive 
+    receive
     {doc_bytes, Ref, DocBytes} ->
         Doc = from_json_obj(?JSON_DECODE(DocBytes)),
         % go through the attachments looking for 'follows' in the data,
