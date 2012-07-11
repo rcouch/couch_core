@@ -177,7 +177,7 @@ run(#evstate{ddocs=DDocs}=State, [<<"ddoc">>, DDocId | Rest]) ->
 run(_, Unknown) ->
     ?LOG_ERROR("Native Process: Unknown command: ~p~n", [Unknown]),
     throw({error, unknown_command}).
-    
+
 ddoc(State, {DDoc}, [FunPath, Args]) ->
     % load fun from the FunPath
     BFun = lists:foldl(fun
@@ -193,6 +193,8 @@ ddoc(State, {DDoc}, [FunPath, Args]) ->
     ddoc(State, makefun(State, BFun, {DDoc}), FunPath, Args).
 
 ddoc(State, {_, Fun}, [<<"validate_doc_update">>], Args) ->
+    {State, (catch apply(Fun, Args))};
+ddoc(State, {_, Fun}, [<<"validate_doc_read">>], Args) ->
     {State, (catch apply(Fun, Args))};
 ddoc(State, {_, Fun}, [<<"filters">>|_], [Docs, Req]) ->
     FilterFunWrapper = fun(Doc) ->
@@ -309,7 +311,7 @@ bindings(State, Sig, DDoc) ->
             throw({timeout, list_pid_getrow})
         end
     end,
-   
+
     FoldRows = fun(Fun, Acc) -> foldrows(GetRow, Fun, Acc) end,
 
     Bindings = [

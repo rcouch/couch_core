@@ -19,7 +19,7 @@
          code_change/3]).
 -export([start_doc_map/3, map_docs/2, map_docs_raw/2, stop_doc_map/1,
          raw_to_ejson/1]).
--export([reduce/3, rereduce/3,validate_doc_update/5]).
+-export([reduce/3, rereduce/3,validate_doc_update/5, validate_doc_read/4]).
 -export([filter_view/3]).
 -export([with_ddoc_proc/2, proc_prompt/2, ddoc_prompt/3, ddoc_proc_prompt/3,
          json_doc/1]).
@@ -229,7 +229,8 @@ builtin_stats(rereduce, [[_,First]|Rest]) ->
 validate_doc_update(DDoc, EditDoc, DiskDoc, Ctx, SecObj) ->
     JsonEditDoc = couch_doc:to_json_obj(EditDoc, [revs]),
     JsonDiskDoc = json_doc(DiskDoc),
-    case ddoc_prompt(DDoc, [<<"validate_doc_update">>], [JsonEditDoc, JsonDiskDoc, Ctx, SecObj]) of
+    case ddoc_prompt(DDoc, [<<"validate_doc_update">>],
+                     [JsonEditDoc, JsonDiskDoc, Ctx, SecObj]) of
         1 ->
             ok;
         {[{<<"forbidden">>, Message}]} ->
@@ -237,6 +238,21 @@ validate_doc_update(DDoc, EditDoc, DiskDoc, Ctx, SecObj) ->
         {[{<<"unauthorized">>, Message}]} ->
             throw({unauthorized, Message})
     end.
+
+
+validate_doc_read(DDoc, Doc, Ctx, SecObj) ->
+    JsonDoc = couch_doc:to_json_obj(Doc, [revs]),
+    case ddoc_prompt(DDoc, [<<"validate_doc_read">>],
+                     [JsonDoc, Ctx, SecObj]) of
+        1 ->
+            ok;
+        {[{<<"forbidden">>, Message}]} ->
+            throw({forbidden, Message});
+        {[{<<"unauthorized">>, Message}]} ->
+            throw({unauthorized, Message})
+    end.
+
+
 
 json_doc(nil) -> null;
 json_doc(Doc) ->
