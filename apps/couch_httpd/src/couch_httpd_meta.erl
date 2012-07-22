@@ -23,7 +23,7 @@
 -include_lib("couch_httpd/include/couch_httpd.hrl").
 
 handle_req(#httpd{method='GET', path_parts=[DbName|_]}=Req, _Db) ->
-    JsonObj = case couch_meta:get_meta(DbName) of
+    JsonObj = case couch_meta:get_meta_doc(DbName) of
         {ok, Doc} ->
             couch_doc:to_json_obj(Doc, []);
         _ ->
@@ -37,7 +37,7 @@ handle_req(#httpd{method='PUT', path_parts=[DbName|_]}=Req, _Db) ->
         {error, _} ->
             couch_httpd:send_error(Req, 400, <<"bad_request">>, <<"Bad 'meta' property">>);
         _ ->
-            couch_meta:update_meta(DbName, Meta),
+            couch_meta:update_meta_doc(DbName, Meta),
             couch_httpd:send_json(Req, 200, [], {[{ok, true}]})
     end;
 

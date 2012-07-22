@@ -148,7 +148,7 @@ create_db_req(#httpd{user_ctx=UserCtx}=Req, DbName) ->
                 couch_db:close(Db),
                 DbUrl = absolute_uri(Req, "/" ++ couch_util:url_encode(DbName)),
 
-                couch_meta:maybe_create_meta(DbName, Meta),
+                couch_meta:create_meta_doc(DbName, Meta),
 
                 send_json(Req, 201, [{"Location", DbUrl}], {[{ok, true}]});
             Error ->
@@ -160,7 +160,7 @@ delete_db_req(#httpd{user_ctx=UserCtx}=Req, DbName) ->
     ok = couch_httpd:verify_is_server_admin(Req),
     case couch_server:delete(DbName, [{user_ctx, UserCtx}]) of
     ok ->
-        couch_meta:maybe_delete_meta(DbName),
+        couch_meta:delete_meta_doc(DbName),
         send_json(Req, 200, {[{ok, true}]});
     Error ->
         throw(Error)

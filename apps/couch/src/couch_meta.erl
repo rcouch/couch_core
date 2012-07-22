@@ -16,15 +16,15 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([maybe_create_meta/2]).
--export([maybe_delete_meta/1]).
--export([get_meta/1]).
--export([update_meta/2]).
+-export([create_meta_doc/2]).
+-export([delete_meta_doc/1]).
+-export([get_meta_doc/1]).
+-export([update_meta_doc/2]).
 -export([ensure_meta_db_exists/0]).
 
 -include("couch_db.hrl").
 
--define(ID_PREFIX, <<"meta_">>).
+-define(SYS_DB_NAME, <<"rc_dbs">>).
 
 -define(SYSTEM_KEY, <<"system">>).
 -define(DB_KEY, <<"db">>).
@@ -37,56 +37,50 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-%% @doc create a new meta document in the given Db and in rc_dbs.
-maybe_create_meta(DbName, Meta) ->
+%% @doc create a new meta document for the given db.
+create_meta_doc(DbName, Meta) ->
     % create the document
     Doc = new_meta_to_doc(DbName, Meta),
+    ?LOG_DEBUG("Doc to be created for db ~p: ~p~n",[DbName, Doc]),
 
-    %% then save it
-    ?LOG_INFO("Doc to be created for db ~p: ~p~n",[DbName, Doc]),
-    write_doc(DbName, Doc).
-
-maybe_delete_meta(DbName) ->
-    %{ok, Db} = ensure_meta_db_exists(),
-    {ok, Db} = get_db(DbName),
-    DocId = meta_doc_id(DbName),
-    case couch_db:open_doc(Db, DocId, []) of
-        {ok, Doc} ->
-            Doc2 = Doc#doc{deleted=true},
-            case (catch couch_db:update_doc(Db, Doc2, [full_commit])) of
-                {ok, _} -> ok;
-                Error ->
-                    ?LOG_INFO("Can't delete the meta doc for the db: ~p. Error: ~p!~n", [DbName, Error]),
-                    Error
-            end;
+    %% then save it in both dbs
+    case write_doc_in_db(DbName, Doc) of
+        {ok, _} ->
+            ok;
         Error ->
-            ?LOG_INFO("Can't find the meta doc for Db: ~p. Error: ~p!~n", [DbName, Error]),
             Error
-    end. 
+    end.
 
-get_meta(DbName) ->
-    %{ok, Db} = ensure_meta_db_exists(),
+%% @doc delete meta doc for the given db.
+delete_meta_doc(DbName) ->
+    % In fact, at this point the db is dead and the doc with it.
+    % Can be used as a hook point.
+    ?LOG_DEBUG("Deleting Meta for Db ~p~n", [DbName]),
+    ok.
+
+%% @doc retrieve the meta doc.
+get_meta_doc(DbName) ->
     {ok, Db} = get_db(DbName),
     DocId = meta_doc_id(DbName),
-    couch_db:open_doc(Db, DocId, []).
+    couch_db:open_doc(Db, DocId, [ejson_body]).
 
-update_meta(DbName, Meta) ->
-    ?LOG_INFO("Updating meta for Db ~p with: ~p~n", [DbName, Meta]),
-    %{ok, Db} = ensure_meta_db_exists(),
-    {ok, Db} = get_db(DbName),
-    DocId = meta_doc_id(DbName),
-    case couch_db:open_doc(Db, DocId, [ejson_body]) of
+%% @doc update the meta doc with the given Meta json.
+update_meta_doc(DbName, Meta) ->
+    ?LOG_DEBUG("Updating meta for Db ~p with: ~p~n", [DbName, Meta]),
+    case get_meta_doc(DbName) of
         {ok, Doc} ->
-            % updating the doc
-            Body = Doc#doc.body,
-            UpdatedBodyWithNewMeta = { update_doc_with(Body, Meta) },
-            UpdatedBodyWithSystem  = update_system(DbName, UpdatedBodyWithNewMeta),
+            % updating the doc with new meta and our internal properties
+            ?LOG_DEBUG("Body is: ~p~n", [Doc#doc.body]),
+            UpdatedBodyWithNewMeta = update_body_with_new_meta(Doc#doc.body, Meta),
+            UpdatedBodyWithSystem  = update_body_with_system(DbName, UpdatedBodyWithNewMeta),
             Doc2 = Doc#doc{body=UpdatedBodyWithSystem},
-            case (catch couch_db:update_doc(Db, Doc2, [full_commit])) of
-                {ok, _} -> ok;
-                Error ->
-                    ?LOG_INFO("Can't update the meta doc for the db: ~p. Error: ~p!~n", [DbName, Error]),
-                    Error
+
+            % writing the new document back
+            case write_doc_in_db(DbName, Doc2) of
+                {ok, _} ->
+                    ok;
+                DbError ->
+                    DbError
             end;
         Error ->
             ?LOG_INFO("Couldn't find the meta doc for the db ~p!", [DbName]),
@@ -108,6 +102,7 @@ ensure_meta_db_exists() ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
+%% @doc create a new meta document based on the given json meta.
 new_meta_to_doc(DbName, Meta) ->
     JsonDoc = case Meta of
         undefined ->
@@ -119,29 +114,34 @@ new_meta_to_doc(DbName, Meta) ->
     DocId = meta_doc_id(DbName),
     Doc#doc{id=DocId, revs={0, []}}.
 
-write_doc(DbName, Doc) ->
+%% @doc write the doc in the db with the given name.
+write_doc_in_db(DbName, Doc) ->
     {ok, Db} = get_db(DbName),
-    DbResult = (catch couch_db:update_doc(Db, Doc, [full_commit])),
-    DbResult2 = case DbResult of
-        {ok, _} -> ok;
-        _ -> DbResult
-    end,
-    {ok, SysDb} = ensure_meta_db_exists(),
-    SysDbResult = (catch couch_db:update_doc(SysDb, Doc, [full_commit])),
-    SysDbResult2 = case SysDbResult of
-        {ok, _} -> ok;
-        _ -> SysDbResult
-    end,
-   if
-       (DbResult2 == ok) and (SysDbResult2 == ok) ->
-           ok;
-       true ->
-           {error, { {in_db, DbResult2}, {in_rc, SysDbResult2} } }
-   end.
+    catch couch_db:update_doc(Db, Doc, [full_commit]).
 
-meta_doc_id(DbName) ->
-    << ?ID_PREFIX/binary, DbName/binary >>.
+%% @doc delete the meta doc in the given db name.
+%delete_doc(DbName) ->
+%    case get_doc(DbName) of
+%        {ok, Doc} ->
+%            Doc2 = Doc#doc{deleted=true},
+%            {ok, Db} = get_db(DbName),
+%            case (catch couch_db:update_doc(Db, Doc2, [full_commit])) of
+%                {ok, _} -> ok;
+%                DeleteError ->
+%                    ?LOG_INFO("Couldn't delete the doc ~p in the Db ~p~n", [Doc, DbName]),
+%                    DeleteError
+%            end;
+%        ReadError ->
+%            ?LOG_INFO("Couldn't find the meta doc in the db ~p~n", [DbName]),
+%            ReadError
+%    end.
 
+%% @doc compute the meta document id.
+meta_doc_id(_DbName) ->
+    %<< <<"_meta_">>/binary, DbName/binary >>.
+    <<"_meta">>.
+
+%% @doc creates a default set of properties for a meta document.
 create_default_meta_for_db(DbName) ->
     Now = ?l2b(httpd_util:rfc1123_date()),
     {[
@@ -162,8 +162,8 @@ get_db(DbName) ->
     UserCtx = #user_ctx{roles = [<<"_admin">>, DbName]},
     couch_db:open_int(DbName, [sys_db, {user_ctx, UserCtx}]).
 
-update_doc_with({DocBody}, {KVs}) ->
-    lists:foldl(
+update_body_with_new_meta({DocBody}, {KVs}) ->
+    UpdatedBodyArray = lists:foldl(
         fun ({?SYSTEM_KEY, _}, Body) ->
                 % ignoring any system property: reserved
                 Body;
@@ -180,7 +180,8 @@ update_doc_with({DocBody}, {KVs}) ->
         end,
         DocBody,
         KVs
-    ).
+    ),
+    { UpdatedBodyArray }.
 
 update_property(Props, Key, Value) ->
     case lists:keymember(Key, 1, Props) of
@@ -190,30 +191,20 @@ update_property(Props, Key, Value) ->
             lists:keyreplace(Key, 1, Props, {Key, Value})
     end.
 
-update_system(DbName, {Meta}) ->
+update_body_with_system(DbName, {Meta}) ->
     Now = ?l2b(httpd_util:rfc1123_date()),
 
-    case lists:keymember(?SYSTEM_KEY, 1, Meta) of
-        false ->
-            % no system prop :-/
-            ?LOG_INFO("No system property for meta doc ~p! Repairing!~n", [DbName]),
-            DefaultSystemProp = create_system_property(DbName, <<"unknown">>, Now),
-            UpdatedMeta = update_property(Meta, ?SYSTEM_KEY, DefaultSystemProp),
-            {UpdatedMeta};
-        true  ->
-            {?SYSTEM_KEY, Value} = lists:keyfind(?SYSTEM_KEY, 1, Meta),
-            case Value of
-                {Props} ->
-                    % updating the last_updated_at property with the timestamp
-                    UpdatedProps = update_property(Props, ?LAST_UPDATED_AT_KEY, Now),
-                    UpdatedMeta = update_property(Meta, ?SYSTEM_KEY, {UpdatedProps}),
-                    {UpdatedMeta};
-                _ ->
-                    % system seems corrupted .. time to repair
-                    ?LOG_INFO("Wrong system property for meta doc ~p! Repairing!~n", [DbName]),
-                    DefaultSystemProp = create_system_property(DbName, <<"unknown">>, Now),
-                    UpdatedMeta = update_property(Meta, ?SYSTEM_KEY, DefaultSystemProp),
-                    {UpdatedMeta}
-            end
-    end.
+    SystemPropValue = case lists:keyfind(?SYSTEM_KEY, 1, Meta) of
+        { ?SYSTEM_KEY, {Props} } ->
+            % updating the last_updated_at property with the timestamp
+            UpdatedProps = update_property(Props, ?LAST_UPDATED_AT_KEY, Now),
+            {UpdatedProps};
+        _ ->
+            ?LOG_INFO("No system property for meta doc ~p! Repairing with default values!~n", [DbName]),
+            create_system_property(DbName, <<"unknown">>, Now)
+    end,
 
+    UpdatedMeta = update_property(Meta, ?SYSTEM_KEY, SystemPropValue),
+    { UpdatedMeta }.
+
+%% the end
