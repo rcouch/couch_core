@@ -19,6 +19,7 @@
 -export([create_meta_doc/2]).
 -export([delete_meta_doc/1]).
 -export([get_meta_doc/1]).
+-export([get_meta/1]).
 -export([update_meta_doc/2]).
 -export([ensure_meta_db_exists/0]).
 
@@ -63,6 +64,17 @@ get_meta_doc(DbName) ->
     {ok, Db} = get_db(DbName),
     DocId = meta_doc_id(DbName),
     couch_db:open_doc(Db, DocId, [ejson_body]).
+
+%% @doc retrieve the json carrying only the meta information.
+get_meta(DbName) ->
+    case get_meta_doc(DbName) of
+        {ok, Doc} ->
+            Body = Doc#doc.body,
+            MetaValue = remove_couch_props(Body),
+            {ok, MetaValue};
+        Error ->
+            Error
+    end.
 
 %% @doc update the meta doc with the given Meta json.
 update_meta_doc(DbName, Meta) ->
@@ -161,6 +173,22 @@ create_system_property(DbName, CreateTimestamp, UpdateTimestamp) ->
 get_db(DbName) ->
     UserCtx = #user_ctx{roles = [<<"_admin">>, DbName]},
     couch_db:open_int(DbName, [sys_db, {user_ctx, UserCtx}]).
+
+remove_couch_props({Body}) ->
+    UpdatedBody = lists:foldl(
+        fun({?COUCH_ID_KEY, _}, Acc) ->
+            % ignore couch id
+            Acc;
+           ({?COUCH_REV_KEY, _}, Acc) ->
+            % ignore couch rev
+            Acc;
+           ({K, _V} = KV, Acc) ->
+            lists:keystore(K, 1, Acc, KV)
+        end,
+        [],
+        Body
+    ),
+    { UpdatedBody }.
 
 update_body_with_new_meta({DocBody}, {KVs}) ->
     UpdatedBodyArray = lists:foldl(

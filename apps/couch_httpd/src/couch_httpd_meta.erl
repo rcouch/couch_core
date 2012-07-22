@@ -23,9 +23,9 @@
 -include_lib("couch_httpd/include/couch_httpd.hrl").
 
 handle_req(#httpd{method='GET', path_parts=[DbName|_]}=Req, _Db) ->
-    JsonObj = case couch_meta:get_meta_doc(DbName) of
-        {ok, Doc} ->
-            couch_doc:to_json_obj(Doc, []);
+    JsonObj = case couch_meta:get_meta(DbName) of
+        {ok, MetaValue} ->
+            MetaValue;
         _ ->
             null
     end,
