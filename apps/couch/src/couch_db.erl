@@ -564,11 +564,15 @@ prep_and_validate_update(Db, #doc{id=Id,revs={RevStart, Revs}}=Doc,
         {ok, {Deleted, DiskSp, DiskRevs}} ->
             case couch_doc:has_stubs(Doc) of
             true ->
-                DiskDoc = make_doc(Db, Id, Deleted, DiskSp, DiskRevs),
+                DiskDoc = make_doc(Db, Id, Deleted, DiskSp, DiskRevs,
+                                   true),
                 Doc2 = couch_doc:merge_stubs(Doc, DiskDoc),
                 {validate_doc_update(Db, Doc2, fun() -> DiskDoc end), Doc2};
             false ->
-                LoadDiskDoc = fun() -> make_doc(Db,Id,Deleted,DiskSp,DiskRevs) end,
+                LoadDiskDoc = fun() ->
+                                    make_doc(Db,Id,Deleted,DiskSp,DiskRevs,
+                                             true)
+                end,
                 {validate_doc_update(Db, Doc, LoadDiskDoc), Doc}
             end;
         error when AllowConflict ->
@@ -1275,8 +1279,10 @@ doc_meta_info(#doc_info{high_seq=Seq,revs=[#rev_info{rev=Rev}|RestInfo]}, RevTre
 read_doc(#db{fd=Fd}, Pos) ->
     couch_file:pread_term(Fd, Pos).
 
-
 make_doc(#db{fd = Fd} = Db, Id, Deleted, Bp, RevisionPath) ->
+    make_doc(#db{fd = Fd} = Db, Id, Deleted, Bp, RevisionPath, false).
+
+make_doc(#db{fd = Fd} = Db, Id, Deleted, Bp, RevisionPath, Updated) ->
     {BodyData, Atts} =
     case Bp of
     nil ->
@@ -1348,9 +1354,14 @@ make_doc(#db{fd = Fd} = Db, Id, Deleted, Bp, RevisionPath) ->
                                       "docs in a dropbox database.">>})
             end;
         _ ->
-            Doc1 = after_doc_read(Db, Doc),
-            ok = validate_doc_read(Db, Doc1),
-            Doc1
+            case Updated of
+                true ->
+                    Doc;
+                _ ->
+                    Doc1 = after_doc_read(Db, Doc),
+                    ok = validate_doc_read(Db, Doc1),
+                    Doc1
+            end
     end.
 
 after_doc_read(#db{after_doc_read = nil}, Doc) ->
