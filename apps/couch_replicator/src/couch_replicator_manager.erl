@@ -409,7 +409,15 @@ maybe_tag_rep_doc(DocId, {RepProps}, RepId) ->
     RepId ->
         ok;
     _ ->
-        update_rep_doc(DocId, [{<<"_replication_id">>, RepId}])
+        RepState = get_value(<<"_replication_state">>, RepProps),
+        case RepState of
+        undefined ->
+            update_rep_doc(DocId, [{<<"_replication_id">>, RepId},
+                                   {<<"_replication_state">>, <<"triggered">>},
+                                   {<<"_replication_stats">>, undefined}]);
+        _ ->
+            update_rep_doc(DocId, [{<<"_replication_id">>, RepId}])
+        end
     end.
 
 
