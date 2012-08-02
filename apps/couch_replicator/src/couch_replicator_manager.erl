@@ -542,13 +542,18 @@ update_rep_doc(RepDb, #doc{body = {RepDocBody}} = RepDoc, KVs) ->
                 lists:keystore(K, 1, Body, KV)
         end,
         RepDocBody, KVs),
+    RepState = get_value(<<"_replication_state">>, NewRepDocBody),
+    RepId =  get_value(<<"_replication_id">>, NewRepDocBody),
     case NewRepDocBody of
     RepDocBody ->
         ok;
-    _ ->
+    _ when RepState /= undefined, RepId /= undefined ->
         % Might not succeed - when the replication doc is deleted right
         % before this update (not an error, ignore).
-        couch_db:update_doc(RepDb, RepDoc#doc{body = {NewRepDocBody}}, [])
+        couch_db:update_doc(RepDb, RepDoc#doc{body = {NewRepDocBody}},
+                            []);
+    _ ->
+        ok
     end.
 
 
