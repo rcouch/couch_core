@@ -22,6 +22,11 @@ seq_alg_config() ->
 utc_alg_config() ->
     test_util:source_file("test/etap/couch/041-uuid-gen-utc.ini").
 
+utc_id_alg_config() ->
+    test_util:source_file("test/etap/041-uuid-gen-id.ini").
+
+
+
 % Run tests and wait for the gen_servers to shutdown
 run_test(IniFiles, Test) ->
     {ok, Pid} = couch_config:start_link(IniFiles),
@@ -40,7 +45,7 @@ run_test(IniFiles, Test) ->
 main(_) ->
     test_util:init_code_path(),
     application:start(crypto),
-    etap:plan(6),
+    etap:plan(9),
 
     case (catch test()) of
         ok ->
@@ -63,6 +68,7 @@ test() ->
     run_test([default_config()], TestUnique),
     run_test([default_config(), seq_alg_config()], TestUnique),
     run_test([default_config(), utc_alg_config()], TestUnique),
+    run_test([default_config(), utc_id_alg_config()], TestUnique),
 
     TestMonotonic = fun () ->
         etap:is(
@@ -73,6 +79,7 @@ test() ->
     end,
     run_test([default_config(), seq_alg_config()], TestMonotonic),
     run_test([default_config(), utc_alg_config()], TestMonotonic),
+    run_test([default_config(), utc_id_alg_config()], TestMonotonic),
 
     % Pretty sure that the average of a uniform distribution is the
     % midpoint of the range. Thus, to exceed a threshold, we need
@@ -94,7 +101,32 @@ test() ->
             "should roll over every so often."
         )
     end,
-    run_test([default_config(), seq_alg_config()], TestRollOver).
+    run_test([default_config(), seq_alg_config()], TestRollOver),
+
+    TestSuffix = fun() ->
+        UUID = binary_to_list(couch_uuids:new()),
+        Suffix = get_suffix(UUID),
+        etap:is(
+            test_same_suffix(100, Suffix),
+            true,
+            "utc_id ids should have the same suffix."
+        )
+    end,
+    run_test([default_config(), utc_id_alg_config()], TestSuffix).
+
+
+get_suffix(UUID) when is_binary(UUID)->
+    get_suffix(binary_to_list(UUID));
+get_suffix(UUID) ->
+    element(2, lists:split(14, UUID)).
+
+test_same_suffix(0, _) ->
+    true;
+test_same_suffix(N, Suffix) ->
+    case get_suffix(couch_uuids:new()) of
+        Suffix -> test_same_suffix(N-1, Suffix);
+        _ -> false
+    end.
 
 test_unique(0, _) ->
     true;
