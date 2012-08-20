@@ -47,7 +47,8 @@ handle_call({subscribe, DbName, DDoc, Subscriber}, _From, Indexers) ->
     unlink(Subscriber),
     Indexers2 = case dict:find(Key, Indexers) of
         {ok, _Pid} ->
-            true = ets:insert(?SUBS, {Key, Subscriber});
+            true = ets:insert(?SUBS, {Key, Subscriber}),
+            Indexers;
         error ->
             {ok, Pid} = couch_mrview_indexer_sup:start_indexer(DbName, DDoc),
             Indexers1 = dict:store(Key, Pid, Indexers),
