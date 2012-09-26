@@ -35,6 +35,7 @@ apps/couch_replicator/ebin
 apps/couch_mrview/ebin
 apps/couch_changes/ebin
 apps/couch_httpd/ebin
+apps/couch_stats/ebin
 # other
 deps
 ebin/*.beam
