@@ -56,10 +56,12 @@ write_uri_file() ->
         case file:write_file(UriFile, Lines) of
         ok -> ok;
         {error, eacces} ->
-            lager:info("Permission error when writing to URI file ~s", [UriFile]),
+            lager:info("Permission error when writing to URI file ~s",
+                 [UriFile]),
             throw({file_permission_error, UriFile});
         Error2 ->
-            lager:info("Failed to write to URI file ~s: ~p~n", [UriFile, Error2]),
+            lager:info("Failed to write to URI file ~s: ~p~n", [UriFile,
+                 Error2]),
             throw(Error2)
         end
     end.
