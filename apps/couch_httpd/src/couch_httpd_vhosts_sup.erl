@@ -24,11 +24,23 @@
 
 start_link() ->
     {ok, Pid} = supervisor:start_link({local, ?MODULE}, ?MODULE, []),
+
+    %% start listeners
+    ok = start_listeners(couch_httpd:get_bindings()),
+
     %% announce HTTP uri
     couch_httpd:display_uris(),
     %% write uri file
     write_uri_file(),
     {ok, Pid}.
+
+start_listeners([]) ->
+    ok;
+start_listeners([Binding | Rest]) ->
+    {ok, _} = supervisor:start_child(ranch_sup,
+                                     couch_httpd:child_spec(Binding)),
+    start_listeners(Rest).
+
 
 write_uri_file() ->
     Ip = couch_config:get("httpd", "bind_address"),
@@ -54,5 +66,4 @@ write_uri_file() ->
 
 init([]) ->
     Vhost = ?CHILD(couch_httpd_vhost),
-    Binding = ?SUP(couch_httpd_binding_sup),
-    {ok, {{one_for_all, 10, 10}, [Vhost, Binding]}}.
+    {ok, {{one_for_all, 10, 10}, [Vhost]}}.

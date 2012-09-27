@@ -4,13 +4,9 @@
 
 
 get_uri(Name, Ip) ->
-    case get_port(Name) of
-        {ok, Port} ->
-            Scheme = get_scheme(Name),
-            Scheme ++ "://" ++ Ip ++ ":" ++ integer_to_list(Port);
-        _ ->
-            undefined
-    end.
+    Port = get_port(Name),
+    Scheme = get_scheme(Name),
+    Scheme ++ "://" ++ Ip ++ ":" ++ integer_to_list(Port).
 
 get_scheme(http) -> "http";
 get_scheme(https) -> "https".

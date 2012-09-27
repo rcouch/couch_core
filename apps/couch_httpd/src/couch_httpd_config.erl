@@ -7,7 +7,7 @@
 -export([set_protocol_options/0, get_protocol_options/1,
          set_protocol_options/2,
          restart_httpd/0, restart_listener/1,
-         stop_listener/1]).
+         start_listener/1, stop_listener/1]).
 
 -export([start_link/0, config_change/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -27,18 +27,14 @@ restart_httpd() ->
 
 restart_listener(Ref) ->
     stop_listener(Ref),
-    supervisor:start_child(couch_httpd_sup, couch_httpd:child_spec(Ref)).
+    supervisor:start_child(ranch_sup, couch_httpd:child_spec(Ref)).
 
+
+start_listener(Ref) ->
+    supervisor:start_child(ranch_sup, couch_httpd:child_spec(Ref)).
 
 stop_listener(Ref) ->
-	case supervisor:terminate_child(couch_httpd_sup,
-                                 {cowboy_listener_sup, Ref}) of
-		ok ->
-			supervisor:delete_child(couch_httpd_sup,
-                           {cowboy_listener_sup, Ref});
-		{error, Reason} ->
-			{error, Reason}
-	end.
+	ranch:stop_listener(Ref).
 
 
 %% @doc Return the current protocol options for the given listener.
