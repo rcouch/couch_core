@@ -6,9 +6,8 @@
         couch_httpd_config,
         couch_httpd_sup
     ]},
-
     {mod, {couch_httpd_app, []}},
-
-    {applications, [kernel, stdlib, crypto, sasl,
-        public_key, ssl, inets, oauth, ibrowse, mochiweb, cowboy, lager, couch]}
+    {applications, [kernel, stdlib, crypto, sasl, public_key,
+                    ssl, inets, oauth, ibrowse, mochiweb, ranch,
+                    lager, couch]}
 ]}.

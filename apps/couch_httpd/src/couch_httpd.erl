@@ -136,11 +136,11 @@ server_options() ->
 
 child_spec(http) ->
     Port = list_to_integer(couch_config:get("httpd", "port", "5984")),
-    child_spec(http, cowboy_tcp_transport, Port,  server_options());
+    child_spec(http, ranch_tcp, Port,  server_options());
 child_spec(https) ->
     Options = server_options() ++ ssl_options(),
     Port = list_to_integer(couch_config:get("ssl", "port", "6984")),
-    child_spec(https, cowboy_ssl_transport, Port,  Options).
+    child_spec(https, ranch_ssl, Port,  Options).
 
 child_spec(Name, Transport, Port, TransOpts0) ->
     {ok, ProtoOpts} = get_protocol_options(),
@@ -150,8 +150,8 @@ child_spec(Name, Transport, Port, TransOpts0) ->
     ),
 
     TransOpts = [{port, Port}|TransOpts0],
-    cowboy:child_spec(Name, NbAcceptors, Transport, TransOpts,
-                      cowboy_http_protocol, ProtoOpts).
+    ranch:child_spec(Name, NbAcceptors, Transport, TransOpts,
+                      cowboy_protocol, ProtoOpts).
 
 get_protocol_options() ->
     DefaultSpec = "{couch_httpd_db, handle_request}",

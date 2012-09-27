@@ -20,11 +20,4 @@ get_scheme(https) -> "https".
 %%
 -spec get_port(any()) -> inet:port_number().
 get_port(Ref) ->
-    case couch_httpd_config:ref_to_listener_pid(Ref) of
-        false ->
-            undefined;
-        ListenerPid ->
-            cowboy_listener:get_port(ListenerPid)
-    end.
-
-
+    ranch:get_port(Ref).
