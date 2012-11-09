@@ -17,8 +17,7 @@ fi
 GUNZIP=`which gunzip`
 UNZIP=`which unzip`
 TAR=`which tar`
-GNUMAKE=`which gmake`
-
+GNUMAKE=`which gmake 2>/dev/null || which make`
 PATCHES=$CORE_TOP/support/patches
 STATICLIBS=$CORE_TOP/libs
 DISTDIR=$STATICLIBS/dists
