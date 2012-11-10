@@ -19,6 +19,7 @@
 -export([compact/3, swap_compacted/2]).
 
 
+-include_lib("couch/include/couch_db.hrl").
 -include_lib("couch_mrview/include/couch_mrview.hrl").
 
 
@@ -93,8 +94,9 @@ open(Db, State) ->
                     NewSt = couch_mrview_util:reset_index(Db, Fd, State),
                     {ok, NewSt#mrst{fd_monitor=erlang:monitor(process, Fd)}}
             end;
-        Error ->
-            (catch couch_mrview_util:delete_files(DbName, Sig)),
+        {error, Reason} = Error ->
+            ?LOG_ERROR("Failed to open view file '~s': ~s",
+                       [IndexFName, file:format_error(Reason)]),
             Error
     end.
 
