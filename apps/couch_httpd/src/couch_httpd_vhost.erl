@@ -20,7 +20,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include_lib("couch/include/couch_db.hrl").
--include_lib("couch_httpd/include/couch_httpd.hrl").
+-include("couch_httpd.hrl").
 
 -define(SEPARATOR, $\/).
 -define(MATCH_ALL, {bind, '*'}).
@@ -66,7 +66,7 @@
 %%
 %% First rule pass wildcard as dbname, second do the same but use a
 %% variable name and the third one allows you to use any app with
-%% @ddocname in any db with @dbname .
+%% ddocname in any db with dbname .
 %%
 %% You could also change the default function to handle request by
 %% changing the setting `redirect_vhost_handler` in `httpd` section of

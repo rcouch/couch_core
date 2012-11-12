@@ -38,7 +38,7 @@
     timeout_fun
 }).
 
-%% @type Req -> #httpd{} | {json_req, JsonObj()}
+%% @doc main function to get changes from couchdb
 handle_changes(Args0, Req, Db0) ->
     #changes_args{
         style = Style,
@@ -140,7 +140,6 @@ get_callback_acc({Callback, _UserAcc} = Pair) when is_function(Callback, 3) ->
 get_callback_acc(Callback) when is_function(Callback, 2) ->
     {fun(Ev, Data, _) -> Callback(Ev, Data) end, ok}.
 
-%% @type Req -> #httpd{} | {json_req, JsonObj()}
 make_filter_fun([$_ | _] = FilterName, Style, Req, Db) ->
     builtin_filter_fun(FilterName, Style, Req, Db);
 make_filter_fun(FilterName, Style, Req, Db) ->
