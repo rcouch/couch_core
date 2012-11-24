@@ -187,11 +187,12 @@ handle_rewrite_req(#httpd{
             ?LOG_DEBUG("rewrite to ~p ~n", [RawPath1]),
 
             % build a new mochiweb request
-            MochiReq1 = mochiweb_request:new(MochiReq:get(socket),
+            MochiReq1 = mochicow_request:new(MochiReq:get(socket),
                                              MochiReq:get(method),
                                              RawPath1,
                                              MochiReq:get(version),
-                                             Headers),
+                                             Headers,
+                                             MochiReq:get(buffer)),
 
             % cleanup, It force mochiweb to reparse raw uri.
             MochiReq1:cleanup(),
