@@ -33,6 +33,7 @@
 handle_welcome_req(#httpd{method='GET'}=Req, WelcomeMessage) ->
     send_json(Req, {[
         {couchdb, WelcomeMessage},
+        {uuid, couch_server:get_uuid()},
         {version, list_to_binary(couch:version())}
         ] ++ case couch_config:get("vendor") of
         [] ->

@@ -17,6 +17,12 @@ HTTP Interface:
  * Limit recursion depth in the URL rewriter. Defaults to a maximum
    of 100 invocations but is configurable.
 
+Replicator:
+
+ * The replicator will use a new server-wide UUID in checkpoint ids to
+ * improve the chances of an efficient resume.
+
+
 Storage System:
 
  * Fixed unnecessary conflict when deleting and creating a
