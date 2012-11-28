@@ -46,7 +46,7 @@ write_uri_file() ->
     Ip = couch_config:get("httpd", "bind_address"),
     Listeners = couch_httpd:get_bindings(),
     Uris = [couch_httpd_util:get_uri(Name, Ip) || Name <- Listeners],
-    case couch_config:get("couchdb", "uri_file", null) of
+    case couch_config:get("httpd", "uri_file", null) of
     null -> ok;
     UriFile ->
         Lines = [begin case Uri of
