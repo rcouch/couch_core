@@ -111,12 +111,11 @@ dispatch_host(MochiReq) ->
                 _Else ->
                     NewPath1 = mochiweb_util:urlunsplit_path({NewPath, Query,
                                           Fragment}),
-                    MochiReq1 = mochicow_request:new(MochiReq:get(socket),
+                    MochiReq1 = mochiweb_request:new(MochiReq:get(socket),
                                       MochiReq:get(method),
                                       NewPath1,
                                       MochiReq:get(version),
-                                      MochiReq:get(headers),
-                                      MochiReq:get(buffer)),
+                                      MochiReq:get(headers)),
                     Fun(MochiReq1, VhostTarget)
             end
     end,
@@ -138,12 +137,11 @@ redirect_to_vhost(MochiReq, VhostTarget) ->
         MochiReq:get(headers)),
 
     % build a new mochiweb request
-    MochiReq1 = mochicow_request:new(MochiReq:get(socket),
+    MochiReq1 = mochiweb_request:new(MochiReq:get(socket),
                                       MochiReq:get(method),
                                       Target,
                                       MochiReq:get(version),
-                                      Headers,
-                                      MochiReq:get(buffer)),
+                                      Headers),
     % cleanup, It force mochiweb to reparse raw uri.
     MochiReq1:cleanup(),
     MochiReq1.

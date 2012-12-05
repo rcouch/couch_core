@@ -11,3 +11,8 @@
     auth,
     default_fun,
     url_handlers}).
+
+-record(hstate, {
+        socket :: inet:socket(),
+        transport :: module(),
+        loop :: {module(), any(), any()}}).

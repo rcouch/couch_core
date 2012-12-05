@@ -14,7 +14,7 @@
 -include_lib("couch/include/couch_db.hrl").
 -include("couch_httpd.hrl").
 
--export([handle_request/2, child_spec/1, init/3, get_protocol_options/0,
+-export([handle_request/2, child_spec/1, get_protocol_options/0,
         set_auth_handlers/0]).
 
 -export([header_value/2,header_value/3,qs_value/2,qs_value/3,qs/1,qs_json_value/3]).
@@ -152,7 +152,7 @@ child_spec(Name, Transport, Port, TransOpts0) ->
 
     TransOpts = [{port, Port}|TransOpts0],
     ranch:child_spec(Name, NbAcceptors, Transport, TransOpts,
-                      cowboy_protocol, ProtoOpts).
+                      couch_httpd_protocol, ProtoOpts).
 
 get_protocol_options() ->
     DefaultSpec = "{couch_httpd_db, handle_request}",
@@ -185,14 +185,7 @@ get_protocol_options() ->
 
     Args = [{DefaultFun, UrlHandlers, DbUrlHandlers, DesignUrlHandlers,
              SocketOptions}],
-    HttpdOptions = [{loop, {couch_httpd, handle_request, Args}}],
-
-    Dispatch = [
-        %% {Host, list({Path, Handler, Opts})}
-            {'_', [{'_', couch_httpd, HttpdOptions}]}
-    ],
-
-    {ok, [{dispatch, Dispatch}]}.
+    {ok, [{loop, {couch_httpd, handle_request, Args}}]}.
 
 display_uris() ->
     display_uris(get_bindings()).
@@ -249,8 +242,6 @@ make_arity_3_fun(SpecStr) ->
 make_fun_spec_strs(SpecStr) ->
     re:split(SpecStr, "(?<=})\\s*,\\s*(?={)", [{return, list}]).
 
-init(_Prot, _Req, _Opts) ->
-    {upgrade, protocol, mochicow_upgrade}.
 
 handle_request(Req, {DefaultFun, UrlHandlers, DbUrlHandlers,
                      DesignUrlHandlers, SocketOptions}) ->

@@ -81,6 +81,7 @@ json_req_obj(#httpd{mochi_req=Req,
     Hlist = mochiweb_headers:to_list(Headers),
     {ok, Info} = couch_db:get_db_info(Db),
 
+    lager:info("Headers ~p~n", [Hlist]),
 % add headers...
     {[{<<"info">>, {Info}},
         {<<"id">>, DocId},
