@@ -205,4 +205,3 @@ update_notify({ddoc_updated, {DbName, DDocId}}) ->
         ets:match_object(?BY_DB, {DbName, {DDocId, '$1'}}));
 update_notify(_) ->
     ok.
-
