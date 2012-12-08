@@ -20,6 +20,7 @@
 -export([dev_start/0,is_admin/2,has_admins/0,get_stats/0,config_change/4]).
 -export([close_lru/0]).
 -export([get_uuid/0]).
+-export([database_dir/0]).
 
 -include("couch_db.hrl").
 
@@ -156,13 +157,19 @@ hash_admin_passwords(Persist) ->
             couch_config:set("admins", User, ?b2l(HashedPassword), Persist)
         end, couch_passwords:get_unhashed_admins()).
 
+database_dir() ->
+    {ok, Cwd} = file:get_cwd(),
+    Default = couch:get_app_env(database_dir, Cwd),
+    couch_config:get("couchdb", "database_dir", Default).
+
+
 init([]) ->
     % read config and register for configuration changes
 
     % just stop if one of the config settings change. couch_server_sup
     % will restart us and then we will pick up the new settings.
 
-    RootDir = couch_config:get("couchdb", "database_dir", "."),
+    RootDir = database_dir(),
     MaxDbsOpen = list_to_integer(
             couch_config:get("couchdb", "max_dbs_open")),
     ok = couch_config:register(fun ?MODULE:config_change/4),

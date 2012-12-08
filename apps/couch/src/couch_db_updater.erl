@@ -27,7 +27,7 @@ init({DbName, Filepath, Fd, Options}) ->
         Header =  #db_header{},
         ok = couch_file:write_header(Fd, Header),
         % delete any old compaction files that might be hanging around
-        RootDir = couch_config:get("couchdb", "database_dir", "."),
+        RootDir = couch_server:database_dir(),
         couch_file:delete(RootDir, Filepath ++ ".compact");
     false ->
         case couch_file:read_header(Fd) of
@@ -68,7 +68,7 @@ handle_call(cancel_compact, _From, #db{compactor_pid = nil} = Db) ->
 handle_call(cancel_compact, _From, #db{compactor_pid = Pid} = Db) ->
     unlink(Pid),
     exit(Pid, kill),
-    RootDir = couch_config:get("couchdb", "database_dir", "."),
+    RootDir = couch_server:database_dir(),
     ok = couch_file:delete(RootDir, Db#db.filepath ++ ".compact"),
     Db2 = Db#db{compactor_pid = nil},
     ok = gen_server:call(couch_server, {db_updated, Db2}, infinity),
@@ -200,7 +200,7 @@ handle_cast({compact_done, CompactFilepath}, #db{filepath=Filepath}=Db) ->
 
         ?LOG_DEBUG("CouchDB swapping files ~s and ~s.",
                 [Filepath, CompactFilepath]),
-        RootDir = couch_config:get("couchdb", "database_dir", "."),
+        RootDir = couch_server:database_dir(),
         couch_file:delete(RootDir, Filepath),
         ok = file:rename(CompactFilepath, Filepath),
         close_db(Db),
