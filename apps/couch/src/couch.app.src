@@ -17,5 +17,5 @@
     {mod, {couch_app, []}},
 
     {applications, [kernel, stdlib, crypto, lager, sasl, public_key, ssl,
-                    inets, os_mon, couch_stats]}
+                    inets, os_mon, couch_stats, gproc]}
 ]}.

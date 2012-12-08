@@ -83,10 +83,12 @@ start_link() ->
 
 %% @doc reload vhosts rules
 reload() ->
-    gen_server:call(?MODULE, reload).
+    Pid = couch_util:await(vhost_server_name()),
+    gen_server:call(Pid, reload).
 
 get_state() ->
-    gen_server:call(?MODULE, get_state).
+    Pid = couch_util:await(vhost_server_name()),
+    gen_server:call(Pid, get_state).
 
 %% @doc Try to find a rule matching current Host heade. some rule is
 %% found it rewrite the Mochiweb Request else it return current Request.
@@ -329,6 +331,7 @@ make_path(Parts) ->
 
 init(_) ->
     ok = couch_config:register(fun ?MODULE:config_change/2),
+    true = register_vhost_server(),
 
     %% load configuration
     {VHostGlobals, VHosts, Fun} = load_conf(),
@@ -356,6 +359,7 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 terminate(_Reason, _State) ->
+    unregister_vhost_server(),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -382,3 +386,13 @@ load_conf() ->
             "redirect_vhost_handler", DefaultVHostFun)),
 
     {VHostGlobals, VHosts, Fun}.
+
+
+vhost_server_name() ->
+    {couch, vhosts_server}.
+
+register_vhost_server() ->
+    couch_util:register(vhost_server_name()).
+
+unregister_vhost_server() ->
+    couch_util:unregister(vhost_server_name()).
