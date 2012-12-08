@@ -113,7 +113,7 @@ handle_invalid_request(State) ->
 -spec handle_invalid_request(term(), term(), term()) -> no_return().
 handle_invalid_request(#hstate{transport=Transport, socket=Socket}=State,
                        Request, RevHeaders) ->
-    Req = new_request(mochiweb_socket(State), Request, RevHeaders),
+    Req = new_request(State, Request, RevHeaders),
     Req:respond({400, [], []}),
     Transport:close(Socket),
     exit(normal).
