@@ -126,7 +126,7 @@ get_db_info(#db{name = DbName, user_ctx = UserCtx}) ->
 get_view_seq(#httpdb{} = Db, Rep) ->
     #rep{view = {DDoc, VName},
          options = Options} = Rep,
-    Path = binary_to_list(DDoc) ++  "/_view" ++ binary_to_list(VName) ++
+    Path = binary_to_list(DDoc) ++  "/_view/" ++ binary_to_list(VName) ++
            "/_last_seq",
     send_req(Db, [{path, Path}, {qs, view_qargs(Options)}],
         fun(200, _, {Props}) ->
