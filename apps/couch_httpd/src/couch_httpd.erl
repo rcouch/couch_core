@@ -797,7 +797,7 @@ start_jsonp() ->
     case get(jsonp) of
         no_jsonp -> [];
         [] -> [];
-        CallBack -> CallBack ++ "("
+        CallBack -> ["/* CouchDB */", CallBack, "("]
     end.
 
 end_jsonp() ->
