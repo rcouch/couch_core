@@ -913,15 +913,19 @@ source_cur_seq(#rep_state{source = #httpdb{} = Db, type = view} = State) ->
     #rep_state{rep_details = Rep, source_seq = Seq} = State,
     case (catch couch_replicator_api_wrap:get_view_seq(Db#httpdb{retries = 3},
                                                        Rep)) of
-        {ok, {Info}} ->
-            get_value(<<"last_seq">>, Info, Seq);
+        {ok, LastSeq} ->
+            LastSeq;
         _ ->
             Seq
     end;
 source_cur_seq(#rep_state{source = Db, type = view} = State) ->
-    #rep_state{rep_details = Rep} = State,
-    {ok, LastSeq} = couch_replicator_api_wrap:get_view_seq(Db, Rep),
-    LastSeq;
+    #rep_state{rep_details = Rep, source_seq = Seq} = State,
+    case catch(couch_replicator_api_wrap:get_view_seq(Db, Rep)) of
+        {ok, LastSeq} ->
+            LastSeq;
+        _ ->
+            Seq
+    end;
 source_cur_seq(#rep_state{source = #httpdb{} = Db, source_seq = Seq}) ->
     case (catch couch_replicator_api_wrap:get_db_info(Db#httpdb{retries = 3})) of
     {ok, Info} ->
