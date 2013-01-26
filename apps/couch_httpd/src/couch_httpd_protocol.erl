@@ -63,6 +63,10 @@ request(#hstate{transport=Transport, socket=Socket}=State) ->
         {ssl_closed, _} ->
             Transport:close(Socket),
             exit(normal);
+        {tcp_error,_,emsgsize} ->
+            % R15B02 returns this then closes the socket, so close and exit
+            Transport:close(Socket),
+            exit(normal);
         _Other ->
             handle_invalid_request(State)
     after ?REQUEST_RECV_TIMEOUT ->
