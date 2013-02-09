@@ -19,12 +19,8 @@
 
 
 root_dir() ->
-    Default = couch:get_app_env(index_dir, couch_server:database_dir()),
-    case couch_config:get("couchdb", "index_dir") of
-        undefined -> couch_config:get("couchdb", "view_index_dir",
-                                      Default);
-        Value -> Value
-    end.
+    Default = couch:get_app_env(view_index_dir, couch_server:database_dir()),
+    couch_config:get("couchdb", "view_index_dir", Default).
 
 index_dir(Module, DbName) when is_binary(DbName) ->
     DbDir = "." ++ binary_to_list(DbName) ++ "_design",
