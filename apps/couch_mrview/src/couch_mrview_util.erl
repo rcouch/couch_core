@@ -216,12 +216,7 @@ init_state(Db, Fd, State, Header) ->
     end,
     ViewStates2 = lists:map(StateUpdate, ViewStates),
 
-    IdReduce = fun
-        (reduce, KVs) -> length(KVs);
-        (rereduce, Reds) -> lists:sum(Reds)
-    end,
-
-    IdBtOpts = [{reduce, IdReduce}, {compression, couch_db:compression(Db)}],
+    IdBtOpts = [{compression, couch_db:compression(Db)}],
     {ok, IdBtree} = couch_btree:open(IdBtreeState, Fd, IdBtOpts),
 
     {ok, SeqBtree} = case SeqIndexed of
