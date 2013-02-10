@@ -537,6 +537,26 @@ init_state(Rep) ->
     {ok, SourceInfo} = couch_replicator_api_wrap:get_db_info(Source),
     {ok, TargetInfo} = couch_replicator_api_wrap:get_db_info(Target),
 
+
+    SourceSeq = case Type of
+        view ->
+
+            Source1 = case Source of
+                #httpdb{} -> Source#httpdb{retries = 3};
+                _ -> Source
+            end,
+            case (catch couch_replicator_api_wrap:get_view_seq(Source1,
+                                                               Rep)) of
+                {ok, LastSeq} ->
+                    LastSeq;
+                _ ->
+                    ?LOWEST_SEQ
+            end;
+        _ ->
+            get_value(<<"update_seq">>, SourceInfo, ?LOWEST_SEQ)
+    end,
+
+
     [SourceLog, TargetLog] = find_replication_logs([Source, Target], Rep),
 
     {StartSeq0, History} = compare_replication_logs(SourceLog, TargetLog),
@@ -567,7 +587,7 @@ init_state(Rep) ->
             start_db_compaction_notifier(Target, self()),
         source_monitor = db_monitor(Source),
         target_monitor = db_monitor(Target),
-        source_seq = get_value(<<"update_seq">>, SourceInfo, ?LOWEST_SEQ)
+        source_seq = SourceSeq
     },
     State#rep_state{timer = start_timer(State)}.
 
