@@ -398,6 +398,23 @@ handle_call({add_stats, Stats}, From, State) ->
     NewStats = couch_replicator_utils:sum_stats(State#rep_state.stats, Stats),
     {noreply, State#rep_state{stats = NewStats}};
 
+handle_call({process_seq, Seq}, From,
+            #rep_state{seqs_in_progress = SeqsInProgress,
+                       highest_seq_done = HighestDone,
+                       current_through_seq = ThroughSeq} = State) ->
+
+    gen_server:reply(From, ok),
+    SeqProcessed0 = case SeqsInProgress of
+        [Seq | _] ->
+            Seq;
+        [_ | _] ->
+            ThroughSeq
+        end,
+
+    SeqProcessed = lists:max([HighestDone, SeqProcessed0]),
+    update_task_progress(State, SeqProcessed),
+    {noreply, State};
+
 handle_call({report_seq_done, Seq, StatsInc}, From,
     #rep_state{seqs_in_progress = SeqsInProgress, highest_seq_done = HighestDone,
         current_through_seq = ThroughSeq, stats = Stats} = State) ->
@@ -957,12 +974,17 @@ source_cur_seq(#rep_state{source = Db, source_seq = Seq}) ->
     {ok, Info} = couch_replicator_api_wrap:get_db_info(Db),
     get_value(<<"update_seq">>, Info, Seq).
 
+update_task_progress(#rep_state{source_seq=SourceCurSeq}=State, {_, CurSeq}) ->
+    update_task(State, SourceCurSeq, CurSeq).
 
 update_task(State) ->
     #rep_state{
         current_through_seq = {_, CurSeq},
         source_seq = SourceCurSeq
     } = State,
+     update_task(State, SourceCurSeq, CurSeq).
+
+update_task(State, SourceCurSeq, CurSeq) ->
     couch_task_status:update(
         rep_stats(State) ++ [
         {source_seq, SourceCurSeq},
@@ -978,6 +1000,7 @@ update_task(State) ->
             {progress, null}
         end
     ]).
+
 
 
 rep_stats(State) ->

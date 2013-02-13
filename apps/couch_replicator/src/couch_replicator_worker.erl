@@ -104,7 +104,7 @@ init({Cp, Source, Target, ChangesManager, MaxConns}) ->
     {ok, State}.
 
 
-handle_call({fetch_doc, {_Id, _Revs, _PAs} = Params}, {Pid, _} = From,
+handle_call({fetch_doc, {_Id, _Revs, _Seq, _PAs} = Params}, {Pid, _} = From,
     #state{loop = Pid, readers = Readers, pending_fetch = nil,
         source = Src, target = Tgt, max_parallel_conns = MaxConns} = State) ->
     case length(Readers) of
@@ -271,14 +271,15 @@ local_process_batch([IdRevs | Rest], Cp, Source, Target, Batch, Stats) ->
 remote_process_batch([], _Parent) ->
     ok;
 
-remote_process_batch([{Id, Revs, PAs} | Rest], Parent) ->
+remote_process_batch([{Id, Revs, Seq, PAs} | Rest], Parent) ->
     % When the source is a remote database, we fetch a single document revision
     % per HTTP request. This is mostly to facilitate retrying of HTTP requests
     % due to network transient failures. It also helps not exceeding the maximum
     % URL length allowed by proxies and Mochiweb.
     lists:foreach(
         fun(Rev) ->
-            ok = gen_server:call(Parent, {fetch_doc, {Id, [Rev], PAs}}, infinity)
+            ok = gen_server:call(Parent, {fetch_doc, {Id, [Rev], Seq, PAs}},
+                                 infinity)
         end,
         Revs),
     remote_process_batch(Rest, Parent).
@@ -294,7 +295,8 @@ spawn_doc_reader(Source, Target, FetchParams) ->
     end).
 
 
-fetch_doc(Source, {Id, Revs, PAs}, DocHandler, Acc) ->
+fetch_doc(Source, {Id, Revs, Seq, PAs}, DocHandler, {_, _, _, Cp}=Acc) ->
+    ok = gen_server:call(Cp, {process_seq, Seq}, infinity),
     try
         couch_replicator_api_wrap:open_doc_revs(
             Source, Id, Revs, [{atts_since, PAs}, latest], DocHandler, Acc)
@@ -488,21 +490,28 @@ flush_doc(Target, #doc{id = Id, revs = {Pos, [RevId | _]}} = Doc) ->
 
 
 find_missing(DocInfos, Target) ->
-    {IdRevs, AllRevsCount} = lists:foldr(
-        fun(#doc_info{id = Id, revs = RevsInfo}, {IdRevAcc, CountAcc}) ->
-            Revs = [Rev || #rev_info{rev = Rev} <- RevsInfo],
-            {[{Id, Revs} | IdRevAcc], CountAcc + length(Revs)}
-        end,
-        {[], 0}, DocInfos),
+    {IdRevs, IdSeqs, AllRevsCount} = lists:foldr(
+            fun(#doc_info{id=Id, high_seq=Seq, revs=RevsInfo}, {IdRevAcc,
+                                                                IdSeqsAcc,
+                                                                CountAcc}) ->
+                    Revs = [Rev || #rev_info{rev = Rev} <- RevsInfo],
+                    {[{Id, Revs} | IdRevAcc], [{Id, Seq} | IdSeqsAcc],
+                     CountAcc + length(Revs)}
+            end,
+            {[], [], 0}, DocInfos),
     {ok, Missing} = couch_replicator_api_wrap:get_missing_revs(Target, IdRevs),
     MissingRevsCount = lists:foldl(
         fun({_Id, MissingRevs, _PAs}, Acc) -> Acc + length(MissingRevs) end,
         0, Missing),
+    %% associate the sequence to the IdRevs pair
+    Missing1 = lists:zipwith(fun({Id, Seq}, {_Id, MissingRevs, PAs}) ->
+                    {Id, MissingRevs, Seq, PAs}
+            end, IdSeqs, Missing),
     Stats = #rep_stats{
         missing_checked = AllRevsCount,
         missing_found = MissingRevsCount
     },
-    {Missing, Stats}.
+    {Missing1, Stats}.
 
 
 maybe_report_stats(Cp, Stats) ->
