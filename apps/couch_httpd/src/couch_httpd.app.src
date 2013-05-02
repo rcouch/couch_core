@@ -12,4 +12,3 @@
                     ssl, inets, ibrowse, ranch, couch]},
     {included_applications, [oauth, mochiweb]}
 ]}.
-]}.
