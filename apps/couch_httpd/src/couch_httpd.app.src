@@ -2,6 +2,7 @@
     {description, "refuge couchdb HTTP api"},
     {vsn, "1.3.0"},
     {registered, [
+        couch_httpd,
         couch_httpd_config,
         couch_httpd_sup
     ]},
