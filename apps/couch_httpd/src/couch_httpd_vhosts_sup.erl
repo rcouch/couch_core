@@ -36,9 +36,11 @@ start_link() ->
 
 start_listeners([]) ->
     ok;
-start_listeners([Binding | Rest]) ->
-    {ok, _} = supervisor:start_child(ranch_sup,
-                                     couch_httpd:child_spec(Binding)),
+start_listeners([Ref | Rest]) ->
+    {NbAcceptors, Transport, TransOpts, ProtoOpts} = couch_httpd:child_spec(Ref),
+    {ok, _} = ranch:start_listener(Ref, NbAcceptors, Transport,
+                                   TransOpts, couch_httpd_protocol,
+                                   ProtoOpts),
     start_listeners(Rest).
 
 

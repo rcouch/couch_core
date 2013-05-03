@@ -36,7 +36,11 @@ reload_listener(Ref) ->
     ranch:set_max_connections(Ref, NbAcceptors).
 
 start_listener(Ref) ->
-    supervisor:start_child(ranch_sup, couch_httpd:child_spec(Ref)).
+    {Name, NbAcceptors, Transport,
+     TransOpts, ProtoOpts} = couch_httpd:child_spec(Ref),
+
+    ranch:start_listener(Name, NbAcceptors, Transport, TransOpts,
+                         couch_httpd_protocol, ProtoOpts).
 
 stop_listener(Ref) ->
 	ranch:stop_listener(Ref).

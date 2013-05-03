@@ -137,13 +137,13 @@ server_options() ->
 
 child_spec(http) ->
     Port = list_to_integer(couch_config:get("httpd", "port", "5984")),
-    child_spec(http, ranch_tcp, Port,  server_options());
+    child_spec(ranch_tcp, Port,  server_options());
 child_spec(https) ->
     Options = server_options() ++ ssl_options(),
     Port = list_to_integer(couch_config:get("ssl", "port", "6984")),
-    child_spec(https, ranch_ssl, Port,  Options).
+    child_spec(ranch_ssl, Port,  Options).
 
-child_spec(Name, Transport, Port, TransOpts0) ->
+child_spec(Transport, Port, TransOpts0) ->
     {ok, ProtoOpts} = get_protocol_options(),
     set_auth_handlers(),
     NbAcceptors = list_to_integer(
@@ -151,8 +151,8 @@ child_spec(Name, Transport, Port, TransOpts0) ->
     ),
 
     TransOpts = [{port, Port}|TransOpts0],
-    ranch:child_spec(Name, NbAcceptors, Transport, TransOpts,
-                      couch_httpd_protocol, ProtoOpts).
+
+    {NbAcceptors, Transport, TransOpts, ProtoOpts}.
 
 get_protocol_options() ->
     DefaultSpec = "{couch_httpd_db, handle_request}",
