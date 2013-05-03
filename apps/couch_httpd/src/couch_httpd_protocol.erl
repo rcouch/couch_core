@@ -27,8 +27,7 @@
 -ifndef(gen_tcp_fix).
 -define(R15B_GEN_TCP_FIX, {tcp_error,_,emsgsize} ->
         % R15B02 returns this then closes the socket, so close and exit
-        Transport:close(Socket),
-        exit(normal);
+        terminate(State);
        ).
 -else.
 -define(R15B_GEN_TCP_FIX, ).
@@ -46,6 +45,7 @@ start_link(ListenerPid, Socket, Transport, Opts) ->
 -spec init(pid(), inet:socket(), module(), any()) -> ok | none().
 init(ListenerPid, Socket, Transport, Opts) ->
     {loop, HttpLoop} = proplists:lookup(loop, Opts),
+    lager:info("listener pid: ~p~n", [ListenerPid]),
     ok = ranch:accept_ack(ListenerPid),
     loop(#hstate{socket = Socket,
                  transport = Transport,
@@ -69,17 +69,14 @@ request(#hstate{transport=Transport, socket=Socket}=State) ->
                 when Protocol == http orelse Protocol == ssl ->
             request(State);
         {tcp_closed, _} ->
-            Transport:close(Socket),
-            exit(normal);
+            terminate(State);
         {ssl_closed, _} ->
-            Transport:close(Socket),
-            exit(normal);
+            terminate(State);
         ?R15B_GEN_TCP_FIX
         _Other ->
             handle_invalid_request(State)
     after ?REQUEST_RECV_TIMEOUT ->
-        Transport:close(Socket),
-        exit(normal)
+        terminate(State)
     end.
 
 headers(#hstate{transport=Transport, socket=Socket}=State, Request,
@@ -101,14 +98,12 @@ headers(#hstate{transport=Transport, socket=Socket, loop=Loop}=State, Request,
             headers(State, Request, [{Name, Value} | Headers],
                     1 + HeaderCount);
         {tcp_closed, _} ->
-            Transport:close(Socket),
-            exit(normal);
+            terminate(State);
         ?R15B_GEN_TCP_FIX
         _Other ->
             handle_invalid_request(State, Request, Headers)
     after ?HEADERS_RECV_TIMEOUT ->
-        Transport:close(Socket),
-        exit(normal)
+        terminate(State)
     end.
 
 call_body({M, F, A}, Req) ->
@@ -171,3 +166,8 @@ mochiweb_socket(#hstate{transport=Transport, socket=Socket}) ->
         _ ->
             Socket
     end.
+
+
+terminate(#hstate{transport=Transport, socket=Socket}) ->
+    Transport:close(Socket),
+    exit(normal).

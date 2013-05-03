@@ -6,7 +6,7 @@
 
 -export([set_protocol_options/0, get_protocol_options/1,
          set_protocol_options/2,
-         restart_httpd/0, restart_listener/1,
+         reload_httpd_config/0, reload_listener/1,
          start_listener/1, stop_listener/1]).
 
 -export([start_link/0, config_change/2]).
@@ -20,15 +20,20 @@ set_protocol_options() ->
                 set_protocol_options(Binding, Options)
         end, couch_httpd:get_bindings()).
 
-restart_httpd() ->
+reload_httpd_config() ->
     lists:foreach(fun(Binding) ->
-                restart_listener(Binding)
+                reload_listener(Binding)
         end, couch_httpd:get_bindings()).
 
-restart_listener(Ref) ->
-    stop_listener(Ref),
-    supervisor:start_child(ranch_sup, couch_httpd:child_spec(Ref)).
-
+reload_listener(Ref) ->
+    ranch:set_max_connections(Ref, 0),
+    Options = ranch:get_protocol_options(Ref),
+    NbAcceptors = list_to_integer(
+            couch_config:get("httpd", "nb_acceptors", "100")
+    ),
+    {ok, Options} = couch_httpd:get_protocol_options(),
+    ranch:set_protocol_options(Ref, Options),
+    ranch:set_max_connections(Ref, NbAcceptors).
 
 start_listener(Ref) ->
     supervisor:start_child(ranch_sup, couch_httpd:child_spec(Ref)).
@@ -56,6 +61,7 @@ start_link() ->
 
 init(_) ->
     %% register to config changes
+    process_flag(trap_exit, true),
     ok = couch_config:register(fun ?MODULE:config_change/2),
     {ok, nil}.
 
@@ -75,9 +81,9 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 config_change("httpd", "bind_address") ->
-    restart_httpd();
+    reload_httpd_config();
 config_change("httpd", "port") ->
-    restart_listener(http);
+    reload_listener(http);
 config_change("httpd", "default_handler") ->
     set_protocol_options();
 config_change("httpd", "server_options") ->
@@ -91,4 +97,4 @@ config_change("httpd_global_handlers", _) ->
 config_change("httpd_db_handlers", _) ->
     set_protocol_options();
 config_change("ssl", _) ->
-    restart_listener(https).
+    reload_listener(https).
