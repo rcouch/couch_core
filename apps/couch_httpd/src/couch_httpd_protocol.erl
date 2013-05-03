@@ -24,6 +24,17 @@
                    {port, 8888}]).
 
 
+-ifndef(gen_tcp_fix).
+-define(R15B_GEN_TCP_FIX, {tcp_error,_,emsgsize} ->
+        % R15B02 returns this then closes the socket, so close and exit
+        Transport:close(Socket),
+        exit(normal);
+       ).
+-else.
+-define(R15B_GEN_TCP_FIX, ).
+-endif.
+
+
 %% @doc Start a mochiweb process
 -spec start_link(pid(), inet:socket(), module(), any()) -> {ok, pid()}.
 start_link(ListenerPid, Socket, Transport, Opts) ->
@@ -63,10 +74,7 @@ request(#hstate{transport=Transport, socket=Socket}=State) ->
         {ssl_closed, _} ->
             Transport:close(Socket),
             exit(normal);
-        {tcp_error,_,emsgsize} ->
-            % R15B02 returns this then closes the socket, so close and exit
-            Transport:close(Socket),
-            exit(normal);
+        ?R15B_GEN_TCP_FIX
         _Other ->
             handle_invalid_request(State)
     after ?REQUEST_RECV_TIMEOUT ->
@@ -95,6 +103,7 @@ headers(#hstate{transport=Transport, socket=Socket, loop=Loop}=State, Request,
         {tcp_closed, _} ->
             Transport:close(Socket),
             exit(normal);
+        ?R15B_GEN_TCP_FIX
         _Other ->
             handle_invalid_request(State, Request, Headers)
     after ?HEADERS_RECV_TIMEOUT ->
