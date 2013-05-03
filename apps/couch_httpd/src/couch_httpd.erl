@@ -375,7 +375,7 @@ handle_request_int(MochiReq, DefaultFun,
             ?LOG_ERROR("received invalid Accept-Encoding header", []),
             send_error(HttpReq, bad_request);
         exit:normal ->
-            exit(normal);
+            ok;
         exit:snappy_nif_not_loaded ->
             ErrorReason = "To access the database or view index, Apache CouchDB"
                 " must be built with Erlang OTP R13B04 or higher.",

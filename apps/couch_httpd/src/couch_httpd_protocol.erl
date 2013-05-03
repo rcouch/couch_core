@@ -35,18 +35,17 @@
 
 
 %% @doc Start a mochiweb process
--spec start_link(pid(), inet:socket(), module(), any()) -> {ok, pid()}.
-start_link(ListenerPid, Socket, Transport, Opts) ->
-    Pid = spawn_link(?MODULE, init, [ListenerPid, Socket, Transport, Opts]),
+-spec start_link(any(), inet:socket(), module(), any()) -> {ok, pid()}.
+start_link(Ref, Socket, Transport, Opts) ->
+    Pid = spawn_link(?MODULE, init, [Ref, Socket, Transport, Opts]),
     {ok, Pid}.
 
 
 %% @private
--spec init(pid(), inet:socket(), module(), any()) -> ok | none().
-init(ListenerPid, Socket, Transport, Opts) ->
+-spec init(any(), inet:socket(), module(), any()) -> ok | none().
+init(Ref, Socket, Transport, Opts) ->
     {loop, HttpLoop} = proplists:lookup(loop, Opts),
-    lager:info("listener pid: ~p~n", [ListenerPid]),
-    ok = ranch:accept_ack(ListenerPid),
+    ok = ranch:accept_ack(Ref),
     loop(#hstate{socket = Socket,
                  transport = Transport,
                  loop = HttpLoop}).
@@ -91,7 +90,7 @@ headers(#hstate{transport=Transport, socket=Socket, loop=Loop}=State, Request,
         {Protocol, _, http_eoh}
                 when Protocol == http orelse Protocol == ssl ->
             Req = new_request(State, Request, Headers),
-            call_body(Loop, Req),
+            catch(call_body(Loop, Req)),
             ?MODULE:after_response(Loop, Req);
         {Protocol, _, {http_header, _, Name, _, Value}}
                 when Protocol == http orelse Protocol == ssl ->
@@ -148,8 +147,9 @@ after_response(Body, Req) ->
 
     case Req:should_close() of
         true ->
+            lager:info("fuck you", []),
             mochiweb_socket:close(Socket),
-            exit(normal);
+            ok;
         false ->
             Req:cleanup(),
             erlang:garbage_collect(),
@@ -170,4 +170,4 @@ mochiweb_socket(#hstate{transport=Transport, socket=Socket}) ->
 
 terminate(#hstate{transport=Transport, socket=Socket}) ->
     Transport:close(Socket),
-    exit(normal).
+    ok.
