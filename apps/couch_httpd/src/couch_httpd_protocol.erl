@@ -147,7 +147,6 @@ after_response(Body, Req) ->
 
     case Req:should_close() of
         true ->
-            lager:info("fuck you", []),
             mochiweb_socket:close(Socket),
             ok;
         false ->
