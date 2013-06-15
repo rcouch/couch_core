@@ -16,7 +16,7 @@
 -include_lib("couch_httpd/include/couch_httpd.hrl").
 -include_lib("ibrowse/include/ibrowse.hrl").
 -include("couch_replicator_api_wrap.hrl").
-
+-include("couch_replicator.hrl").
 
 -export([setup/1]).
 -export([send_req/3]).
@@ -156,7 +156,7 @@ maybe_retry(Error, Worker, #httpdb{retries = Retries, wait = Wait} = HttpDb,
     release_worker(Worker, HttpDb),
     Method = string:to_upper(atom_to_list(get_value(method, Params, get))),
     Url = couch_util:url_strip_password(full_url(HttpDb, Params)),
-    ?LOG_INFO("Retrying ~s request to ~s in ~p seconds due to error ~s",
+    ?LOG_REP("Retrying ~s request to ~s in ~p seconds due to error ~s",
         [Method, Url, Wait / 1000, error_cause(Error)]),
     ok = timer:sleep(Wait),
     Wait2 = erlang:min(Wait * 2, ?MAX_WAIT),
@@ -172,11 +172,11 @@ report_error(Worker, HttpDb, Params, Error) ->
 
 
 do_report_error(Url, Method, {code, Code}) ->
-    ?LOG_ERROR("Replicator, request ~s to ~p failed. The received "
+    ?LOG_REP_ERROR("Replicator, request ~s to ~p failed. The received "
         "HTTP error code is ~p", [Method, Url, Code]);
 
 do_report_error(FullUrl, Method, Error) ->
-    ?LOG_ERROR("Replicator, request ~s to ~p failed due to error ~s",
+    ?LOG_REP_ERROR("Replicator, request ~s to ~p failed due to error ~s",
         [Method, FullUrl, error_cause(Error)]).
 
 

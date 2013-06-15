@@ -30,3 +30,10 @@
     docs_written = 0,
     doc_write_failures = 0
 }).
+
+-define(LOG_REP(Format, Args), lager:info([{task, replication}],
+                                          Format, Args)).
+-define(LOG_REP_ERROR(Format, Args), lager:error([{task, replication}],
+                                                 Format, Args)).
+-define(LOG_REP_DEBUG(Format, Args), lager:debug([{task, replication}],
+                                                 Format, Args)).

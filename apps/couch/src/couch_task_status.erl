@@ -107,6 +107,9 @@ handle_call({add_task, TaskProps}, {From, _}, Server) ->
     [] ->
         true = ets:insert(?MODULE, {From, TaskProps}),
         erlang:monitor(process, From),
+        Type = proplists:get_value(type, TaskProps),
+        ?LOG_DEBUG([{task, Type}], "Add task for ~p: ~p",
+                   [From, TaskProps]),
         {reply, ok, Server};
     [_] ->
         {reply, {add_task_error, already_registered}, Server}
@@ -123,7 +126,9 @@ handle_call(all, _, Server) ->
 handle_cast({update_status, Pid, NewProps}, Server) ->
     case ets:lookup(?MODULE, Pid) of
     [{Pid, _CurProps}] ->
-        ?LOG_DEBUG("New task status for ~p: ~p", [Pid, NewProps]),
+        Type = proplists:get_value(type, NewProps),
+        ?LOG_DEBUG([{task, Type}], "New task status for ~p: ~p",
+                   [Pid, NewProps]),
         true = ets:insert(?MODULE, {Pid, NewProps});
     _ ->
         % Task finished/died in the meanwhile and we must have received

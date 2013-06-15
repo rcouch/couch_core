@@ -72,7 +72,7 @@ replication_started(#rep{id = {BaseId, _} = RepId}) ->
             {<<"_replication_id">>, ?l2b(BaseId)},
             {<<"_replication_stats">>, undefined}]),
         ok = gen_server:call(?MODULE, {rep_started, RepId}, infinity),
-        ?LOG_INFO("Document `~s` triggered replication `~s`",
+        ?LOG_REP("Document `~s` triggered replication `~s`",
             [DocId, pp_rep_id(RepId)])
     end.
 
@@ -86,7 +86,7 @@ replication_completed(#rep{id = RepId}, Stats) ->
             {<<"_replication_state">>, <<"completed">>},
             {<<"_replication_stats">>, {Stats}}]),
         ok = gen_server:call(?MODULE, {rep_complete, RepId}, infinity),
-        ?LOG_INFO("Replication `~s` finished (triggered by document `~s`)",
+        ?LOG_REP("Replication `~s` finished (triggered by document `~s`)",
             [pp_rep_id(RepId), DocId])
     end.
 
@@ -162,7 +162,7 @@ handle_call({rep_error, RepId, Error}, _From, State) ->
     {reply, ok, replication_error(State, RepId, Error)};
 
 handle_call(Msg, From, State) ->
-    ?LOG_ERROR("Replication manager received unexpected call ~p from ~p",
+    ?LOG_REP_ERROR("Replication manager received unexpected call ~p from ~p",
         [Msg, From]),
     {stop, {error, {unexpected_call, Msg}}, State}.
 
@@ -183,7 +183,7 @@ handle_cast({set_max_retries, MaxRetries}, State) ->
     {noreply, State#state{max_retries = MaxRetries}};
 
 handle_cast(Msg, State) ->
-    ?LOG_ERROR("Replication manager received unexpected cast ~p", [Msg]),
+    ?LOG_REP_ERROR("Replication manager received unexpected cast ~p", [Msg]),
     {stop, {error, {unexpected_cast, Msg}}, State}.
 
 
@@ -192,7 +192,7 @@ handle_info({'EXIT', From, normal}, #state{changes_feed_loop = From} = State) ->
     {noreply, State#state{changes_feed_loop = nil, rep_db_name = nil}};
 
 handle_info({'EXIT', From, Reason}, #state{db_notifier = From} = State) ->
-    ?LOG_ERROR("Database update notifier died. Reason: ~p", [Reason]),
+    ?LOG_REP_ERROR("Database update notifier died. Reason: ~p", [Reason]),
     {stop, {db_update_notifier_died, Reason}, State};
 
 handle_info({'EXIT', From, normal}, #state{rep_start_pids = Pids} = State) ->
@@ -204,7 +204,7 @@ handle_info({'DOWN', _Ref, _, _, _}, State) ->
     {noreply, State};
 
 handle_info(Msg, State) ->
-    ?LOG_ERROR("Replication manager received unexpected message ~p", [Msg]),
+    ?LOG_REP_ERROR("Replication manager received unexpected message ~p", [Msg]),
     {stop, {unexpected_msg, Msg}, State}.
 
 
@@ -343,7 +343,7 @@ rep_db_update_error(Error, DocId) ->
     _ ->
         Reason = to_binary(Error)
     end,
-    ?LOG_ERROR("Replication manager, error processing document `~s`: ~s",
+    ?LOG_REP_ERROR("Replication manager, error processing document `~s`: ~s",
         [DocId, Reason]),
     update_rep_doc(DocId, [{<<"_replication_state">>, <<"error">>}]).
 
@@ -372,7 +372,7 @@ maybe_start_replication(State, DocId, RepDoc) ->
         },
         true = ets:insert(?REP_TO_STATE, {RepId, RepState}),
         true = ets:insert(?DOC_TO_REP, {DocId, RepId}),
-        ?LOG_INFO("Attempting to start replication `~s` (document `~s`).",
+        ?LOG_REP("Attempting to start replication `~s` (document `~s`).",
             [pp_rep_id(RepId), DocId]),
         Pid = spawn_link(fun() -> start_replication(Rep, 0) end),
         State#state{rep_start_pids = [Pid | State#state.rep_start_pids]};
@@ -380,12 +380,12 @@ maybe_start_replication(State, DocId, RepDoc) ->
         maybe_tag_rep_doc(DocId, RepDoc, ?l2b(BaseId)),
         State;
     #rep_state{starting = false, rep = #rep{doc_id = OtherDocId}} ->
-        ?LOG_INFO("The replication specified by the document `~s` was already"
+        ?LOG_REP("The replication specified by the document `~s` was already"
             " triggered by the document `~s`", [DocId, OtherDocId]),
         maybe_tag_rep_doc(DocId, RepDoc, ?l2b(BaseId)),
         State;
     #rep_state{starting = true, rep = #rep{doc_id = OtherDocId}} ->
-        ?LOG_INFO("The replication specified by the document `~s` is already"
+        ?LOG_REP("The replication specified by the document `~s` is already"
             " being triggered by the document `~s`", [DocId, OtherDocId]),
         maybe_tag_rep_doc(DocId, RepDoc, ?l2b(BaseId)),
         State
@@ -451,7 +451,7 @@ rep_doc_deleted(DocId) ->
         couch_replicator:cancel_replication(RepId),
         true = ets:delete(?REP_TO_STATE, RepId),
         true = ets:delete(?DOC_TO_REP, DocId),
-        ?LOG_INFO("Stopped replication `~s` because replication document `~s`"
+        ?LOG_REP("Stopped replication `~s` because replication document `~s`"
             " was deleted", [pp_rep_id(RepId), DocId]);
     [] ->
         ok
@@ -474,7 +474,7 @@ maybe_retry_replication(#rep_state{retries_left = 0} = RepState, Error, State) -
     couch_replicator:cancel_replication(RepId),
     true = ets:delete(?REP_TO_STATE, RepId),
     true = ets:delete(?DOC_TO_REP, DocId),
-    ?LOG_ERROR("Error in replication `~s` (triggered by document `~s`): ~s"
+    ?LOG_REP_ERROR("Error in replication `~s` (triggered by document `~s`): ~s"
         "~nReached maximum retry attempts (~p).",
         [pp_rep_id(RepId), DocId, to_binary(error_reason(Error)), MaxRetries]),
     State;
@@ -485,7 +485,7 @@ maybe_retry_replication(RepState, Error, State) ->
     } = RepState,
     #rep_state{wait = Wait} = NewRepState = state_after_error(RepState),
     true = ets:insert(?REP_TO_STATE, {RepId, NewRepState}),
-    ?LOG_ERROR("Error in replication `~s` (triggered by document `~s`): ~s"
+    ?LOG_REP_ERROR("Error in replication `~s` (triggered by document `~s`): ~s"
         "~nRestarting replication in ~p seconds.",
         [pp_rep_id(RepId), DocId, to_binary(error_reason(Error)), Wait]),
     Pid = spawn_link(fun() -> start_replication(Rep, Wait) end),
@@ -493,7 +493,7 @@ maybe_retry_replication(RepState, Error, State) ->
 
 
 stop_all_replications() ->
-    ?LOG_INFO("Stopping all ongoing replications because the replicator"
+    ?LOG_REP("Stopping all ongoing replications because the replicator"
         " database was deleted or changed", []),
     ets:foldl(
         fun({_, RepId}, _) ->
@@ -516,7 +516,7 @@ update_rep_doc(RepDocId, KVs) ->
     catch throw:conflict ->
         % Shouldn't happen, as by default only the role _replicator can
         % update replication documents.
-        ?LOG_ERROR("Conflict error when updating replication document `~s`."
+        ?LOG_REP_ERROR("Conflict error when updating replication document `~s`."
             " Retrying.", [RepDocId]),
         ok = timer:sleep(5),
         update_rep_doc(RepDocId, KVs)

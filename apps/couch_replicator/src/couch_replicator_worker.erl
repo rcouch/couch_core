@@ -300,7 +300,7 @@ fetch_doc(Source, {Id, Revs, PAs}, DocHandler, Acc) ->
             Source, Id, Revs, [{atts_since, PAs}, latest], DocHandler, Acc)
     catch
     throw:{missing_stub, _} ->
-        ?LOG_ERROR("Retrying fetch and update of document `~s` due to out of "
+        ?LOG_REP_ERROR("Retrying fetch and update of document `~s` due to out of "
             "sync attachment stubs. Missing revisions are: ~s",
             [Id, couch_doc:revs_to_strs(Revs)]),
         couch_replicator_api_wrap:open_doc_revs(Source, Id, Revs,
@@ -451,7 +451,7 @@ flush_docs(Target, DocList) ->
     DbUri = couch_replicator_api_wrap:db_uri(Target),
     lists:foreach(
         fun({Props}) ->
-            ?LOG_ERROR("Replicator: couldn't write document `~s`, revision `~s`,"
+            ?LOG_REP_ERROR("Replicator: couldn't write document `~s`, revision `~s`,"
                 " to target database `~s`. Error: `~s`, reason: `~s`.",
                 [get_value(id, Props, ""), get_value(rev, Props, ""), DbUri,
                     get_value(error, Props, ""), get_value(reason, Props, "")])
@@ -466,20 +466,20 @@ flush_doc(Target, #doc{id = Id, revs = {Pos, [RevId | _]}} = Doc) ->
     {ok, _} ->
         ok;
     Error ->
-        ?LOG_ERROR("Replicator: error writing document `~s` to `~s`: ~s",
+        ?LOG_REP_ERROR("Replicator: error writing document `~s` to `~s`: ~s",
             [Id, couch_replicator_api_wrap:db_uri(Target), couch_util:to_binary(Error)]),
         Error
     catch
     throw:{missing_stub, _} = MissingStub ->
         throw(MissingStub);
     throw:{Error, Reason} ->
-        ?LOG_ERROR("Replicator: couldn't write document `~s`, revision `~s`,"
+        ?LOG_REP_ERROR("Replicator: couldn't write document `~s`, revision `~s`,"
             " to target database `~s`. Error: `~s`, reason: `~s`.",
             [Id, couch_doc:rev_to_str({Pos, RevId}),
                 couch_replicator_api_wrap:db_uri(Target), to_binary(Error), to_binary(Reason)]),
         {error, Error};
     throw:Err ->
-        ?LOG_ERROR("Replicator: couldn't write document `~s`, revision `~s`,"
+        ?LOG_REP_ERROR("Replicator: couldn't write document `~s`, revision `~s`,"
             " to target database `~s`. Error: `~s`.",
             [Id, couch_doc:rev_to_str({Pos, RevId}),
                 couch_replicator_api_wrap:db_uri(Target), to_binary(Err)]),
