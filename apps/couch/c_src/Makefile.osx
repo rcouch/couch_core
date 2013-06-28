@@ -32,11 +32,11 @@ COFFEE_FILE_COMPONENTS_LAST = share/server/coffee-script.js \
 							  share/server/loop.js
 
 
-ICU_CFLAGS=$(DRV_CFLAGS) -Isupport/osx/icu -I/usr/include -fPIC -gstabs
+ICU_CFLAGS=$(DRV_CFLAGS) -Isupport/osx/icu -I/usr/include -fPIC
 ICU_LIBS= -lpthread -lm  -licucore -lstdc++ -L/usr/lib $(DRV_LDFLAGS) -fPIC
 
 ifeq ($(USE_STATIC_ICU), 1)
-	ICU_CFLAGS=$(DRV_CFLAGS) -I$(STATICLIBS)/icu/include -gstabs
+	ICU_CFLAGS=$(DRV_CFLAGS) -I$(STATICLIBS)/icu/include
 	ICU_LIBS=-lstdc++ -fPIC $(DRV_LDFLAGS) \
 			 $(STATICLIBS)/icu/lib/libicui18n.a \
 			 $(STATICLIBS)/icu/lib/libicuuc.a \
