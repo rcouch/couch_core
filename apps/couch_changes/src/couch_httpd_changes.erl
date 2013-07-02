@@ -40,6 +40,10 @@ handle_changes_req1(Req, #db{name=DbName}=Db) ->
     end.
 
 do_changes_req(Req, Db) ->
+    %% remove connections from the pool, changes connections are
+    %% generally long-lived connections.
+    couch_httpd_protocol:remove_connection(),
+
     MakeCallback = fun(Resp) ->
         fun({change, {ChangeProp}=Change, _}, "eventsource") ->
                 Seq = proplists:get_value(<<"seq">>, ChangeProp),
