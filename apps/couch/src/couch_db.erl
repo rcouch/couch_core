@@ -1391,8 +1391,8 @@ validate_doc_read(Db, Doc) ->
                     throw(Error);
                 throw:{unauthorized, _}=Error ->
                     throw(Error);
-                throw:{not_found, _}=Error ->
-                    throw(Error);
+                throw:{notfound, Reason}=Error ->
+                    throw({not_found, Reason});
                 throw:Error ->
                     lager:error("Error while validating read: ~p~n", [Error]),
                     ok
