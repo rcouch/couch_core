@@ -249,7 +249,9 @@ validate_doc_read(DDoc, Doc, Ctx, SecObj) ->
         {[{<<"forbidden">>, Message}]} ->
             throw({forbidden, Message});
         {[{<<"unauthorized">>, Message}]} ->
-            throw({unauthorized, Message})
+            throw({unauthorized, Message});
+        {[{<<"notfound">>, Message}]} ->
+            throw({not_found, Message})
     end.
 
 
