@@ -541,9 +541,12 @@ view_changes_enumerator({{_Key, _Seq}, {Id, _V}}, Acc) ->
 view_changes_enumerator1(Id, Acc) ->
     #changes_acc{
         filter = FilterFun, callback = Callback, prepend = Prepend,
-        user_acc = UserAcc, limit = Limit, resp_type = ResponseType, db = Db,
+        user_acc = UserAcc, limit = Limit, resp_type = ResponseType, db = Db0,
         timeout = Timeout, timeout_fun = TimeoutFun
     } = Acc,
+
+    {ok, Db} = couch_db:reopen(Db0),
+
     {ok, DocInfo} = couch_db:get_doc_info(Db, Id),
     #doc_info{high_seq = Seq} = DocInfo,
     Results0 = FilterFun(Db, DocInfo),
@@ -554,9 +557,9 @@ view_changes_enumerator1(Id, Acc) ->
         {Done, UserAcc2} = maybe_heartbeat(Timeout, TimeoutFun, UserAcc),
         case Done of
         stop ->
-            {stop, Acc#changes_acc{seq = Seq, user_acc = UserAcc2}};
+            {stop, Acc#changes_acc{seq = Seq, user_acc = UserAcc2, db=Db}};
         ok ->
-            {Go, Acc#changes_acc{seq = Seq, user_acc = UserAcc2}}
+            {Go, Acc#changes_acc{seq = Seq, user_acc = UserAcc2, db=Db}}
         end;
     _ ->
         ChangesRow = changes_row(Results, DocInfo, Acc),
@@ -564,7 +567,8 @@ view_changes_enumerator1(Id, Acc) ->
         reset_heartbeat(),
         {Go, Acc#changes_acc{
             seq = Seq, prepend = <<",\n">>,
-            user_acc = UserAcc2, limit = Limit - 1}}
+            user_acc = UserAcc2, limit = Limit - 1,
+            db = Db}}
     end.
 
 changes_row(Results, DocInfo, Acc) ->
