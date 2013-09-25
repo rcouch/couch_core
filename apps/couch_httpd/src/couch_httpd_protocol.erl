@@ -13,7 +13,6 @@
 -export([loop/1]).
 -export([after_response/2, reentry/1]).
 -export([new_request/3, call_body/2]).
--export([remove_connection/0]).
 
 -include("couch_httpd.hrl").
 
@@ -46,7 +45,6 @@ start_link(Ref, Socket, Transport, Opts) ->
 -spec init(any(), inet:socket(), module(), any()) -> ok | none().
 init(Ref, Socket, Transport, Opts) ->
     {loop, HttpLoop} = proplists:lookup(loop, Opts),
-    put(ranch_ref, Ref),
     ok = ranch:accept_ack(Ref),
     loop(#hstate{socket = Socket,
                  transport = Transport,
@@ -158,15 +156,6 @@ after_response(Body, Req) ->
                                  socket=Socket,
                                  loop=Body})
     end.
-
-%% @doc Remove the calling process' connection from the pool.
-%%
-%% Useful if you have long-lived connections that aren't taking up
-%% resources and shouldn't be counted in the limited number of running
-%% connections.
-remove_connection() ->
-    Ref = get(ranch_ref),
-    ranch:remove_connection(Ref).
 
 
 mochiweb_socket(#hstate{transport=Transport, socket=Socket}) ->
