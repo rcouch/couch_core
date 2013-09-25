@@ -56,6 +56,18 @@ handle_stats_req(#httpd{method='GET',
                         path_parts=[_, <<"vm">>, <<"dets">>]}=Req) ->
     flush(Req),
     send_vm_json(Req, couch_stats_vm:get_dets_info());
+handle_stats_req(#httpd{method='GET',
+                        path_parts=[_, <<"httpd">>, <<"connections">>]}=Req) ->
+    flush(Req),
+
+    NbConns = lists:foldl(fun(Ref, Sum) ->
+                    N = ranch_server:count_connections(Ref),
+                    Sum + N
+            end, 0, couch_httpd:get_bindings()),
+
+    send_json(Req, {[{<<"httpd">>, {[{<<"connections">>, NbConns}]}}]});
+
+
 handle_stats_req(#httpd{method='GET', path_parts=[_, Mod, Key]}=Req) ->
     flush(Req),
     Stats = couch_stats_aggregator:get_json({list_to_atom(binary_to_list(Mod)),
@@ -67,6 +79,7 @@ handle_stats_req(#httpd{method='GET', path_parts=[_, _Mod, _Key | _Extra]}) ->
 
 handle_stats_req(Req) ->
     send_method_not_allowed(Req, "GET").
+
 
 
 

@@ -148,7 +148,7 @@ after_response(Body, Req) ->
     case Req:should_close() of
         true ->
             mochiweb_socket:close(Socket),
-            ok;
+            exit(normal);
         false ->
             Req:cleanup(),
             erlang:garbage_collect(),
@@ -169,4 +169,4 @@ mochiweb_socket(#hstate{transport=Transport, socket=Socket}) ->
 
 terminate(#hstate{transport=Transport, socket=Socket}) ->
     Transport:close(Socket),
-    ok.
+    exit(normal).
