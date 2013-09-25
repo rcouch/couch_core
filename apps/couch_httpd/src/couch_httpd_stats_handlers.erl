@@ -28,6 +28,34 @@ handle_stats_req(#httpd{method='GET', path_parts=[_]}=Req) ->
 handle_stats_req(#httpd{method='GET', path_parts=[_, _Mod]}) ->
     throw({bad_request, <<"Stat names must have exactly to parts.">>});
 
+handle_stats_req(#httpd{method='GET',
+                        path_parts=[_, <<"vm">>, <<"system">>]}=Req) ->
+    flush(Req),
+    send_vm_json(Req, couch_stats_vm:get_system_info());
+handle_stats_req(#httpd{method='GET',
+                        path_parts=[_, <<"vm">>, <<"memory">>]}=Req) ->
+    flush(Req),
+    send_vm_json(Req, couch_stats_vm:get_memory());
+handle_stats_req(#httpd{method='GET',
+                        path_parts=[_, <<"vm">>, <<"statistics">>]}=Req) ->
+    flush(Req),
+    send_vm_json(Req, couch_stats_vm:get_statistics());
+handle_stats_req(#httpd{method='GET',
+                        path_parts=[_, <<"vm">>, <<"process">>]}=Req) ->
+    flush(Req),
+    send_vm_json(Req, couch_stats_vm:get_process_info());
+handle_stats_req(#httpd{method='GET',
+                        path_parts=[_, <<"vm">>, <<"port">>]}=Req) ->
+    flush(Req),
+    send_vm_json(Req, couch_stats_vm:get_port_info());
+handle_stats_req(#httpd{method='GET',
+                        path_parts=[_, <<"vm">>, <<"ets">>]}=Req) ->
+    flush(Req),
+    send_vm_json(Req, couch_stats_vm:get_ets_info());
+handle_stats_req(#httpd{method='GET',
+                        path_parts=[_, <<"vm">>, <<"dets">>]}=Req) ->
+    flush(Req),
+    send_vm_json(Req, couch_stats_vm:get_dets_info());
 handle_stats_req(#httpd{method='GET', path_parts=[_, Mod, Key]}=Req) ->
     flush(Req),
     Stats = couch_stats_aggregator:get_json({list_to_atom(binary_to_list(Mod)),
@@ -39,6 +67,19 @@ handle_stats_req(#httpd{method='GET', path_parts=[_, _Mod, _Key | _Extra]}) ->
 
 handle_stats_req(Req) ->
     send_method_not_allowed(Req, "GET").
+
+
+
+send_vm_json(Req, Value) ->
+    couch_httpd:initialize_jsonp(Req),
+    Headers = [
+        {"Content-Type", couch_httpd:negotiate_content_type(Req)},
+        {"Cache-Control", "must-revalidate"}
+    ],
+    Body = [couch_httpd:start_jsonp(), mochijson2:encode(Value),
+            couch_httpd:end_jsonp(), $\n],
+    couch_httpd:send_response(Req, 200, Headers, Body).
+
 
 range(Req) ->
     case couch_util:get_value("range", couch_httpd:qs(Req)) of

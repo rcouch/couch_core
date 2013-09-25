@@ -34,6 +34,8 @@
 -export([vendor_id/0]).
 -export([display_uris/0, display_uris/1, get_bindings/0]).
 -export([http_1_0_keep_alive/2]).
+-export([initialize_jsonp/1, negotiate_content_type/1, start_jsonp/0,
+         end_jsonp/0]).
 
 ssl_options() ->
     CertFile = couch_config:get("ssl", "cert_file", nil),
