@@ -51,7 +51,7 @@ init(Ref, Socket, Transport, Opts) ->
                  loop = HttpLoop}).
 
 loop(#hstate{transport=Transport, socket=Socket}=State) ->
-    ok = Transport:setopts(Socket, [{packet, http}]),
+    ok = Transport:setopts(Socket, [{packet, http}, {recbuf, 8192}]),
     request(State).
 
 request(#hstate{transport=Transport, socket=Socket}=State) ->
