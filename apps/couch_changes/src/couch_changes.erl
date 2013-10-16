@@ -544,28 +544,46 @@ view_changes_enumerator1(Id, Acc) ->
         user_acc = UserAcc, limit = Limit, resp_type = ResponseType, db = Db,
         timeout = Timeout, timeout_fun = TimeoutFun
     } = Acc,
-    {ok, DocInfo} = couch_db:get_doc_info(Db, Id),
-    #doc_info{high_seq = Seq} = DocInfo,
-    Results0 = FilterFun(Db, DocInfo),
-    Results = [Result || Result <- Results0, Result /= null],
-    Go = if (Limit =< 1) andalso Results =/= [] -> stop; true -> ok end,
-    case Results of
-    [] ->
-        {Done, UserAcc2} = maybe_heartbeat(Timeout, TimeoutFun, UserAcc),
-        case Done of
-        stop ->
-            {stop, Acc#changes_acc{seq = Seq, user_acc = UserAcc2}};
-        ok ->
-            {Go, Acc#changes_acc{seq = Seq, user_acc = UserAcc2}}
-        end;
-    _ ->
-        ChangesRow = changes_row(Results, DocInfo, Acc),
-        UserAcc2 = Callback({change, ChangesRow, Prepend}, ResponseType, UserAcc),
-        reset_heartbeat(),
-        {Go, Acc#changes_acc{
-            seq = Seq, prepend = <<",\n">>,
-            user_acc = UserAcc2, limit = Limit - 1}}
+
+    case couch_db:get_doc_info(Db, Id) of
+        {ok, DocInfo} ->
+            #doc_info{high_seq = Seq} = DocInfo,
+            Results0 = FilterFun(Db, DocInfo),
+            Results = [Result || Result <- Results0, Result /= null],
+            Go = if (Limit =< 1) andalso Results =/= [] -> stop;
+                true -> ok
+            end,
+            case Results of
+            [] ->
+                {Done, UserAcc2} = maybe_heartbeat(Timeout, TimeoutFun,
+                                                   UserAcc),
+                case Done of
+                stop ->
+                    {stop, Acc#changes_acc{seq = Seq, user_acc = UserAcc2}};
+                ok ->
+                    {Go, Acc#changes_acc{seq = Seq, user_acc = UserAcc2}}
+                end;
+            _ ->
+                ChangesRow = changes_row(Results, DocInfo, Acc),
+                UserAcc2 = Callback({change, ChangesRow, Prepend},
+                                    ResponseType, UserAcc),
+                reset_heartbeat(),
+                {Go, Acc#changes_acc{
+                    seq = Seq, prepend = <<",\n">>,
+                    user_acc = UserAcc2, limit = Limit - 1}}
+            end;
+        Error ->
+            ?LOG_ERROR("view change error ignored: ~p", [Error]),
+            {Done, UserAcc2} = maybe_heartbeat(Timeout, TimeoutFun,
+                                                   UserAcc),
+            case Done of
+                stop ->
+                    {stop, Acc#changes_acc{user_acc = UserAcc2}};
+                ok ->
+                    {ok, Acc#changes_acc{user_acc = UserAcc2}}
+            end
     end.
+
 
 changes_row(Results, DocInfo, Acc) ->
     #doc_info{
