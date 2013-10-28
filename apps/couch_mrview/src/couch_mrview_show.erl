@@ -176,8 +176,14 @@ handle_view_list_req(#httpd{method=Method}=Req, Db, DDoc)
             couch_httpd:send_error(Req, 404, <<"list_error">>, <<"Bad path.">>)
     end;
 handle_view_list_req(#httpd{method='POST'}=Req, Db, DDoc) ->
-    {Props} = couch_httpd:json_body_obj(Req),
-    Keys = proplists:get_value(<<"keys">>, Props),
+    %% if the body is a JSON, parse keys from it
+    Keys = case couch_httpd:header_value(Req, "Content-Type") of
+        "application/json" ++ _ ->
+            {Props} = couch_httpd:json_body_obj(Req),
+            proplists:get_value(<<"keys">>, Props);
+        _ ->
+            undefined
+    end,
     case Req#httpd.path_parts of
         [_, _, _DName, _, LName, VName] ->
             handle_view_list(Req, Db, DDoc, LName, DDoc, VName, Keys);
