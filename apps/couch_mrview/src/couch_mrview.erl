@@ -310,13 +310,14 @@ map_fold(_KV, _Offset, #mracc{limit=0}=Acc) ->
     {stop, Acc};
 map_fold({{Key, Id}, Val}, _Offset, Acc) ->
     #mracc{
-        db=Db,
+        db=Db0,
         limit=Limit,
         doc_info=DI,
         callback=Callback,
         user_acc=UAcc0,
         args=Args
     } = Acc,
+    {ok, Db} = couch_db:reopen(Db0), %% make sure we are using latest db state
     Doc = case DI of
         #doc_info{} -> couch_mrview_util:maybe_load_doc(Db, DI, Args);
         _ -> couch_mrview_util:maybe_load_doc(Db, Id, Val, Args)
@@ -324,6 +325,7 @@ map_fold({{Key, Id}, Val}, _Offset, Acc) ->
     Row = [{id, Id}, {key, Key}, {value, Val}] ++ Doc,
     {Go, UAcc1} = Callback({row, Row}, UAcc0),
     {Go, Acc#mracc{
+        db=Db,
         limit=Limit-1,
         doc_info=undefined,
         user_acc=UAcc1,
