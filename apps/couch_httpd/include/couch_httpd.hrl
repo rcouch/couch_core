@@ -16,3 +16,11 @@
         socket :: inet:socket(),
         transport :: module(),
         loop :: {module(), any(), any()}}).
+
+-record(doc_query_args, {
+    options = [],
+    rev = nil,
+    open_revs = [],
+    update_type = interactive_edit,
+    atts_since = nil
+}).

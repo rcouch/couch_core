@@ -18,20 +18,13 @@
 -export([handle_request/1, handle_compact_req/2, handle_design_req/2,
     db_req/2, couch_doc_open/4, update_doc_result_to_json/1,
     update_doc_result_to_json/2, handle_design_info_req/3]).
+-export([parse_doc_query/1]).
 
 -import(couch_httpd,[send_json/2,send_json/3,send_json/4,
                      send_method_not_allowed/2, start_json_response/2,
                      send_chunk/2,last_chunk/1, end_json_response/1,
                      start_chunked_response/3, absolute_uri/2, send/2,
                      start_response_length/4, send_error/4]).
-
--record(doc_query_args, {
-    options = [],
-    rev = nil,
-    open_revs = [],
-    update_type = interactive_edit,
-    atts_since = nil
-}).
 
 % Database request handlers
 handle_request(#httpd{path_parts=[DbName|RestParts],method=Method,
