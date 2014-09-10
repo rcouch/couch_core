@@ -202,7 +202,7 @@ handle_info({'EXIT', From, normal}, #state{rep_start_pids = Pids} = State) ->
 handle_info({'EXIT', From, Reason}, #state{rep_start_pids = Pids} = State) ->
     case lists:member(From, Pids) of
         true ->
-            ?LOG_REP_ERRO("~s : Known replication pid ~w died :: ~w",
+            ?LOG_REP_ERROR("~s : Known replication pid ~w died :: ~w",
                           [?MODULE, From, Reason]),
             {noreply, State#state{rep_start_pids = Pids -- [From]}};
         false ->
