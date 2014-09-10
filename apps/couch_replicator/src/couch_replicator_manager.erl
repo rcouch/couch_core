@@ -206,7 +206,7 @@ handle_info({'EXIT', From, Reason}, #state{rep_start_pids = Pids} = State) ->
                           [?MODULE, From, Reason]),
             {noreply, State#state{rep_start_pids = Pids -- [From]}};
         false ->
-            ?LOG_REP_ERRO("~s : Unknown pid ~w died :: ~w",
+            ?LOG_REP_ERROR("~s : Unknown pid ~w died :: ~w",
                           [?MODULE, From, Reason]),
             {stop, {unexpected_exit, From, Reason}, State}
     end;
