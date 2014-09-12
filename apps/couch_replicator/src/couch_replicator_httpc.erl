@@ -67,6 +67,8 @@ send_ibrowse_req(#httpdb{headers = BaseHeaders} = HttpDb, Params) ->
         Worker, Url, Headers2, Method, Body, IbrowseOptions, infinity),
     {Worker, Response}.
 
+process_response({error, connection_closing}, _Worker, HttpDb, Params, Callback) ->
+    send_req(HttpDb, Params, Callback);
 
 process_response({error, sel_conn_closed}, _Worker, HttpDb, Params, Callback) ->
     send_req(HttpDb, Params, Callback);
