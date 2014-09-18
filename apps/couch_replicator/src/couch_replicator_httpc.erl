@@ -52,6 +52,7 @@ send_ibrowse_req(#httpdb{headers = BaseHeaders} = HttpDb, Params) ->
     Headers2 = oauth_header(HttpDb, Params) ++ Headers1,
     Url = full_url(HttpDb, Params),
     Body = get_value(body, Params, []),
+    ibrowse:trace_on(),
     case get_value(path, Params) of
     "_changes" ->
         {ok, Worker} = ibrowse:spawn_link_worker_process(Url);
