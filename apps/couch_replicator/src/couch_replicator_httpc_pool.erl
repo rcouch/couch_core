@@ -22,6 +22,7 @@
 -export([code_change/3, terminate/2]).
 
 -include_lib("couch/include/couch_db.hrl").
+-include("couch_replicator.hrl").
 
 -import(couch_util, [
     get_value/2,
