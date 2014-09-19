@@ -66,9 +66,9 @@ init({Url, Options}) ->
     {ok, State}.
 
 
-handle_call(free_worker, From, #state{busy=[]} = State) ->
+handle_call({free_worker, _Worker}, From, #state{busy=[]} = State) ->
     {reply, ok, State};
-handle_call(free_worker, From, #state{busy=Busy} = State) ->
+handle_call({free_worker, Worker}, From, #state{busy=Busy} = State) ->
     ?LOG_REP_DEBUG("~p free worker", [?MODULE]),
     Busy2 = case lists:member(Worker, Busy) of
         true -> Busy -- [Worker];
