@@ -63,6 +63,7 @@ init({Url, Options}) ->
 
 
 handle_call(get_worker, From, #state{waiting = Waiting} = State) ->
+    ?LOG_REP_DEBUG("~p get worker", [?MODULE]),
     #state{url = Url, limit = Limit, busy = Busy, free = Free} = State,
     case length(Busy) >= Limit of
     true ->
@@ -70,6 +71,8 @@ handle_call(get_worker, From, #state{waiting = Waiting} = State) ->
     false ->
         case Free of
         [] ->
+           ?LOG_REP_DEBUG("~p spawn new worker", [?MODULE]),
+
            {ok, Worker} = ibrowse:spawn_link_worker_process(Url),
            Free2 = Free;
         [Worker | Free2] ->
@@ -84,6 +87,7 @@ handle_call(stop, _From, State) ->
 
 
 handle_cast({release_worker, Worker}, #state{waiting = Waiting} = State) ->
+    ?LOG_REP_DEBUG("~p release worker", [?MODULE]),
     case is_process_alive(Worker) andalso
         lists:member(Worker, State#state.busy) of
     true ->
