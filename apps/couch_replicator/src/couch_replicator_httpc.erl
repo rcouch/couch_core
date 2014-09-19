@@ -72,7 +72,9 @@ process_response({error, connection_closing}, _Worker, HttpDb, Params, Callback)
     ?LOG_REP("got connection_closing error", []),
     send_req(HttpDb, Params, Callback);
 
-process_response({error, sel_conn_closed}, _Worker, HttpDb, Params, Callback) ->
+process_response({error, sel_conn_closed}=Error, _Worker, HttpDb, Params, Callback) ->
+    ?LOG_REP("server closed the socket ~p~n", [Error]),
+
     send_req(HttpDb, Params, Callback);
 
 process_response({error, {'EXIT', {normal, _}}}=Error, _Worker, HttpDb, Params, Cb) ->
