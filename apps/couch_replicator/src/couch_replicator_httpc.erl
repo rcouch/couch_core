@@ -75,9 +75,10 @@ process_response({error, connection_closing}, _Worker, HttpDb, Params, Callback)
 process_response({error, sel_conn_closed}, _Worker, HttpDb, Params, Callback) ->
     send_req(HttpDb, Params, Callback);
 
-process_response({error, {'EXIT', {normal, _}}}, _Worker, HttpDb, Params, Cb) ->
+process_response({error, {'EXIT', {normal, _}}}=Error, _Worker, HttpDb, Params, Cb) ->
     % ibrowse worker terminated because remote peer closed the socket
     % -> not an error
+    ?LOG_REP("got error ~p~n", [Error]),
     send_req(HttpDb, Params, Cb);
 
 process_response({ibrowse_req_id, ReqId}, Worker, HttpDb, Params, Callback) ->
