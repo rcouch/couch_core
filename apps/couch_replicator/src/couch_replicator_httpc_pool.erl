@@ -54,7 +54,7 @@ release_worker(Pool, Worker) ->
     ok = gen_server:cast(Pool, {release_worker, Worker}).
 
 free_worker(Pool, Worker) ->
-    ok = gen_server:call(Pool, {free_worker, Worker}, infinity).
+    gen_server:cast(Pool, {free_worker, Worker}, infinity).
 
 
 init({Url, Options}) ->
@@ -66,15 +66,7 @@ init({Url, Options}) ->
     {ok, State}.
 
 
-handle_call({free_worker, _Worker}, From, #state{busy=[]} = State) ->
-    {reply, ok, State};
-handle_call({free_worker, Worker}, From, #state{busy=Busy} = State) ->
-    ?LOG_REP_DEBUG("~p free worker", [?MODULE]),
-    Busy2 = case lists:member(Worker, Busy) of
-        true -> Busy -- [Worker];
-        false -> Busy
-    end,
-    {reply, ok, State#state{busy=Busy2}};
+
 handle_call(get_worker, From, #state{waiting = Waiting} = State) ->
     ?LOG_REP_DEBUG("~p get worker", [?MODULE]),
     #state{url = Url, limit = Limit, busy = Busy, free = Free} = State,
@@ -99,6 +91,15 @@ handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
 
 
+handle_call({free_worker, _Worker}, #state{busy=[]} = State) ->
+    {noreply, State};
+handle_call({free_worker, Worker}, From, #state{busy=Busy} = State) ->
+    ?LOG_REP_DEBUG("~p free worker", [?MODULE]),
+    Busy2 = case lists:member(Worker, Busy) of
+        true -> Busy -- [Worker];
+        false -> Busy
+    end,
+    {noreply, State#state{busy=Busy2}};
 handle_cast({release_worker, Worker}, #state{waiting = Waiting} = State) ->
     ?LOG_REP_DEBUG("~p release worker", [?MODULE]),
     case is_process_alive(Worker) andalso

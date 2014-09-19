@@ -68,19 +68,24 @@ send_ibrowse_req(#httpdb{headers = BaseHeaders} = HttpDb, Params) ->
         Worker, Url, Headers2, Method, Body, IbrowseOptions, infinity),
     {Worker, Response}.
 
-process_response({error, connection_closing}, _Worker, HttpDb, Params, Callback) ->
+process_response({error, connection_closing}, Worker, HttpDb, Params, Callback) ->
     ?LOG_REP_DEBUG("got connection_closing error", []),
+    couch_replicator_httpc_pool:free_worker(HttpDb#httpdb.httpc_pool,
+                                            Worker),
     send_req(HttpDb, Params, Callback);
 
 process_response({error, sel_conn_closed}=Error, _Worker, HttpDb, Params, Callback) ->
     ?LOG_REP_DEBUG("server closed the socket ~p~n", [Error]),
-
+    couch_replicator_httpc_pool:free_worker(HttpDb#httpdb.httpc_pool,
+                                            Worker),
     send_req(HttpDb, Params, Callback);
 
 process_response({error, {'EXIT', {normal, _}}}=Error, _Worker, HttpDb, Params, Cb) ->
     % ibrowse worker terminated because remote peer closed the socket
     % -> not an error
     ?LOG_REP_DEBUG("ibrowse worker terminated ~p~n", [Error]),
+    couch_replicator_httpc_pool:free_worker(HttpDb#httpdb.httpc_pool,
+                                            Worker),
     send_req(HttpDb, Params, Cb);
 
 process_response({ibrowse_req_id, ReqId}, Worker, HttpDb, Params, Callback) ->
