@@ -69,18 +69,18 @@ send_ibrowse_req(#httpdb{headers = BaseHeaders} = HttpDb, Params) ->
     {Worker, Response}.
 
 process_response({error, connection_closing}, _Worker, HttpDb, Params, Callback) ->
-    ?LOG_REP("got connection_closing error", []),
+    ?LOG_REP_DEBUG("got connection_closing error", []),
     send_req(HttpDb, Params, Callback);
 
 process_response({error, sel_conn_closed}=Error, _Worker, HttpDb, Params, Callback) ->
-    ?LOG_REP("server closed the socket ~p~n", [Error]),
+    ?LOG_REP_DEBUG("server closed the socket ~p~n", [Error]),
 
     send_req(HttpDb, Params, Callback);
 
 process_response({error, {'EXIT', {normal, _}}}=Error, _Worker, HttpDb, Params, Cb) ->
     % ibrowse worker terminated because remote peer closed the socket
     % -> not an error
-    ?LOG_REP("ibrowse worker terminated ~p~n", [Error]),
+    ?LOG_REP_DEBUG("ibrowse worker terminated ~p~n", [Error]),
     send_req(HttpDb, Params, Cb);
 
 process_response({ibrowse_req_id, ReqId}, Worker, HttpDb, Params, Callback) ->
