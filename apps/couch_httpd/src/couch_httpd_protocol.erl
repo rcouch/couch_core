@@ -68,13 +68,17 @@ request(#hstate{transport=Transport, socket=Socket}=State) ->
                 when Protocol == http orelse Protocol == ssl ->
             request(State);
         {tcp_closed, _} ->
+            lager:debug("?p Clients closed the connection~n", [?MODULE]),
             terminate(State);
         {ssl_closed, _} ->
+            lager:debug("?p Clients closed the connection~n", [?MODULE]),
             terminate(State);
         ?R15B_GEN_TCP_FIX
         _Other ->
+            lager:debug("?p invalid request: ~p~n", [?MODULE, _Other]),
             handle_invalid_request(State)
     after ?REQUEST_RECV_TIMEOUT ->
+        lager:debug("?p server recv timeout~n", [?MODULE]),
         terminate(State)
     end.
 
@@ -97,9 +101,14 @@ headers(#hstate{transport=Transport, socket=Socket, loop=Loop}=State, Request,
             headers(State, Request, [{Name, Value} | Headers],
                     1 + HeaderCount);
         {tcp_closed, _} ->
+            lager:debug("?p Clients closed the connection~n", [?MODULE]),
+            terminate(State);
+        {ssl_closed, _} ->
+            lager:debug("?p Clients closed the connection~n", [?MODULE]),
             terminate(State);
         ?R15B_GEN_TCP_FIX
         _Other ->
+            lager:debug("?p invalid request: ~p~n", [?MODULE, _Other]),
             handle_invalid_request(State, Request, Headers)
     after ?HEADERS_RECV_TIMEOUT ->
         terminate(State)
@@ -147,6 +156,7 @@ after_response(Body, Req) ->
 
     case Req:should_close() of
         true ->
+            lager:debug("?p should close:~n", [?MODULE]),
             mochiweb_socket:close(Socket),
             exit(normal);
         false ->
