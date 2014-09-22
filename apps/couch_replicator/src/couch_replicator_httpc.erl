@@ -74,13 +74,13 @@ process_response({error, connection_closing}, Worker, HttpDb, Params, Callback) 
                                             Worker),
     send_req(HttpDb, Params, Callback);
 
-process_response({error, sel_conn_closed}=Error, _Worker, HttpDb, Params, Callback) ->
+process_response({error, sel_conn_closed}=Error, Worker, HttpDb, Params, Callback) ->
     ?LOG_REP_DEBUG("server closed the socket ~p~n", [Error]),
     couch_replicator_httpc_pool:free_worker(HttpDb#httpdb.httpc_pool,
                                             Worker),
     send_req(HttpDb, Params, Callback);
 
-process_response({error, {'EXIT', {normal, _}}}=Error, _Worker, HttpDb, Params, Cb) ->
+process_response({error, {'EXIT', {normal, _}}}=Error, Worker, HttpDb, Params, Cb) ->
     % ibrowse worker terminated because remote peer closed the socket
     % -> not an error
     ?LOG_REP_DEBUG("ibrowse worker terminated ~p~n", [Error]),
