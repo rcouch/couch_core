@@ -90,10 +90,9 @@ handle_call(get_worker, From, #state{waiting = Waiting} = State) ->
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
 
-
-handle_call({free_worker, _Worker}, _From, #state{busy=[]} = State) ->
+handle_cast({free_worker, _Worker},  #state{busy=[]} = State) ->
     {noreply, State};
-handle_call({free_worker, Worker}, _From, #state{busy=Busy} = State) ->
+handle_cast({free_worker, Worker}, #state{busy=Busy} = State) ->
     ?LOG_REP_DEBUG("~p free worker", [?MODULE]),
     Busy2 = case lists:member(Worker, Busy) of
         true -> Busy -- [Worker];
