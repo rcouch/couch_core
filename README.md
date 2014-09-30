@@ -15,6 +15,10 @@ Internally we are using it to test couchdb and as an example on how to
 embed couchdb in your own applications. A working release example is
 provided.
 
+Note: couch_core is actually deprecated and is actually superceded by
+the new version of [rouch](http://github.com/rcouch/rcouch).
+
+
 ## Features:
 
 - Apache CouchDB based
