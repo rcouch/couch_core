@@ -15,7 +15,7 @@
 
 % public API
 -export([start_link/2, stop/1]).
--export([get_worker/1, release_worker/2, free_worker/2]).
+-export([get_worker/1, release_worker/2]).
 
 % gen_server API
 -export([init/1, handle_call/3, handle_info/2, handle_cast/2]).
@@ -53,10 +53,6 @@ get_worker(Pool) ->
 release_worker(Pool, Worker) ->
     ok = gen_server:cast(Pool, {release_worker, Worker}).
 
-free_worker(Pool, Worker) ->
-    gen_server:cast(Pool, {free_worker, Worker}, infinity).
-
-
 init({Url, Options}) ->
     process_flag(trap_exit, true),
     State = #state{
@@ -64,8 +60,6 @@ init({Url, Options}) ->
         limit = get_value(max_connections, Options)
     },
     {ok, State}.
-
-
 
 handle_call(get_worker, From, #state{waiting = Waiting} = State) ->
     ?LOG_REP_DEBUG("~p get worker", [?MODULE]),
@@ -90,15 +84,6 @@ handle_call(get_worker, From, #state{waiting = Waiting} = State) ->
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State}.
 
-handle_cast({free_worker, _Worker},  #state{busy=[]} = State) ->
-    {noreply, State};
-handle_cast({free_worker, Worker}, #state{busy=Busy} = State) ->
-    ?LOG_REP_DEBUG("~p free worker", [?MODULE]),
-    Busy2 = case lists:member(Worker, Busy) of
-        true -> Busy -- [Worker];
-        false -> Busy
-    end,
-    {noreply, State#state{busy=Busy2}};
 handle_cast({release_worker, Worker}, #state{waiting = Waiting} = State) ->
     ?LOG_REP_DEBUG("~p release worker", [?MODULE]),
     case is_process_alive(Worker) andalso
