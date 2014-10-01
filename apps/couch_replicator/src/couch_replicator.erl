@@ -477,7 +477,7 @@ terminate(shutdown, #rep_state{rep_details = #rep{id = RepId}} = State) ->
     couch_replicator_notifier:notify({error, RepId, <<"cancelled">>}),
     terminate_cleanup(State);
 
-terminate(Reason, State) ->
+terminate(Reason, #rep_state{} = §State) ->
     #rep_state{
         source_name = Source,
         target_name = Target,
@@ -488,6 +488,7 @@ terminate(Reason, State) ->
     terminate_cleanup(State),
     couch_replicator_notifier:notify({error, RepId, Reason}),
     couch_replicator_manager:replication_error(Rep, Reason);
+
 terminate(shutdown, {error, Class, Error, Stack, InitArgs}) ->
     #rep{id=RepId} = InitArgs,
     ?LOG_ERROR("~p:~p: Replication failed to start for args ~p: ~p",
