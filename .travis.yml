@@ -4,6 +4,7 @@ before_install:
 script: make USE_STATIC_ICU=1
 language: erlang
 otp_release:
+   - R16B03-1
    - R15B02
    - R15B01
    - R15B
