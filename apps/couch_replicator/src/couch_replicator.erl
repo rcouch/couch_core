@@ -477,7 +477,7 @@ terminate(shutdown, #rep_state{rep_details = #rep{id = RepId}} = State) ->
     couch_replicator_notifier:notify({error, RepId, <<"cancelled">>}),
     terminate_cleanup(State);
 
-terminate(Reason, #rep_state{} = §State) ->
+terminate(Reason, #rep_state{} = State) ->
     #rep_state{
         source_name = Source,
         target_name = Target,
