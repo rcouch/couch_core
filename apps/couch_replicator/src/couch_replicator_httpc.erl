@@ -92,6 +92,11 @@ send_ibrowse_req(#httpdb{headers = BaseHeaders} = HttpDb, Params) ->
          Body, IbrowseOptions, Timeout),
     {Worker, Response, IsChanges}.
 
+
+process_response({error, req_timedout}, _Worker, HttpDb, Params, _Cb) ->
+    ?LOG_REP_DEBUG("retry, request timedout.", []),
+    throw({retry, HttpDb, Params});
+
 process_response({error, connection_closing}, _Worker, HttpDb, Params, _Cb) ->
     ?LOG_REP_DEBUG("got connection_closing error", []),
     throw({retry, HttpDb, Params});
